@@ -1,0 +1,34 @@
+name: iOS CI
+
+on:
+  push:
+    paths: ['ios/**']
+  pull_request:
+    paths: ['ios/**']
+
+jobs:
+  lint-and-test:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ios
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -switch /Applications/Xcode_15.4.app
+
+      - name: SwiftLint
+        run: |
+          brew install swiftlint || true
+          swiftlint --strict
+
+      - name: Build and Test
+        run: |
+          xcodebuild test \
+            -scheme Ember \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5' \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty

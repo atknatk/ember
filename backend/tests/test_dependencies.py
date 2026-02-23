@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import pytest
 from fastapi import HTTPException
-from httpx import AsyncClient
 
 from app.dependencies import get_current_user
 

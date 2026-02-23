@@ -133,15 +133,14 @@ async def test_settings_uses_pydantic_settings_base() -> None:
     assert issubclass(Settings, BaseSettings)
 
 
-@pytest.mark.asyncio
-async def test_pyproject_toml_ruff_config() -> None:
+def test_pyproject_toml_ruff_config() -> None:
     """pyproject.toml must have correct ruff configuration per spec."""
     import tomllib
 
     pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
     assert pyproject_path.exists(), "pyproject.toml must exist"
 
-    with open(pyproject_path, "rb") as f:
+    with open(pyproject_path, "rb") as f:  # noqa: ASYNC230
         data = tomllib.load(f)
 
     ruff = data["tool"]["ruff"]
@@ -153,13 +152,12 @@ async def test_pyproject_toml_ruff_config() -> None:
     assert lint_rules == expected_rules
 
 
-@pytest.mark.asyncio
-async def test_pyproject_toml_pytest_config() -> None:
+def test_pyproject_toml_pytest_config() -> None:
     """pyproject.toml must have correct pytest configuration."""
     import tomllib
 
     pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-    with open(pyproject_path, "rb") as f:
+    with open(pyproject_path, "rb") as f:  # noqa: ASYNC230
         data = tomllib.load(f)
 
     pytest_config = data["tool"]["pytest"]["ini_options"]

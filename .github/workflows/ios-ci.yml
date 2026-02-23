@@ -1,10 +1,7 @@
 name: iOS CI
 
 on:
-  push:
-    paths: ['ios/**']
-  pull_request:
-    paths: ['ios/**']
+  workflow_dispatch:  # disabled — enable when ios/ exists
 
 jobs:
   lint-and-test:

@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Memory
     mem0_api_key: str = ""
 
+    # Chat context
+    max_context_messages: int = 50
+
     # Voice
     elevenlabs_api_key: str = ""
 

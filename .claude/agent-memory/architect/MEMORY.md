@@ -51,14 +51,26 @@
 - P01-04: Idempotent registration handles Cognito-DB split-brain edge case.
 - P01-04: email-validator package needed for Pydantic EmailStr.
 
-## Implementation State After P01-03
+## Implementation State After P01-04
 
 - `backend/app/models/` has all 7 model files + populated `__init__.py` with all imports.
 - `backend/app/dependencies.py` has `get_db` (real) + `get_current_user` (real -- JWT verification + Profile lookup).
 - `backend/app/core/auth.py` has CognitoJWKSProvider + verify_cognito_token.
-- `backend/app/config.py` Settings class has cognito fields. No changes needed.
+- `backend/app/config.py` Settings class has cognito fields. Does NOT have `claude_haiku_model` yet.
 - `backend/app/core/` has `__init__.py` + `logging.py` + `auth.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py`.
-- `backend/app/services/__init__.py` is empty.
-- `backend/requirements.txt` includes python-jose[cryptography], httpx, boto3. Does NOT include email-validator.
-- `backend/app/routes/` has `__init__.py` + `health.py`. No auth routes yet.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py`.
+- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py`.
+- `backend/requirements.txt` includes python-jose[cryptography], httpx, boto3, anthropic, email-validator.
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py`.
+- `backend/app/main.py` registers health and auth routers.
+
+## Key Decisions Log (P01-05)
+
+- P01-05: Claude Haiku for system prompt generation (not Sonnet) -- cheap/fast for short one-time text.
+- P01-05: No cursor pagination on character list -- users have at most dozens of characters.
+- P01-05: system_prompt excluded from list response, included in POST/PUT responses only.
+- P01-05: Soft delete (is_active=false) per docs/04-veri-api.md.
+- P01-05: Template and mem0_agent_id are immutable after creation.
+- P01-05: mem0_agent_id uniqueness fallback: {template}_{uuid[:8]}_{user_id} for duplicate templates.
+- P01-05: New config field: claude_haiku_model = "claude-haiku-4-5".
+- P01-05: No Mem0 API calls during character CRUD -- agent_id stored for future messaging use.

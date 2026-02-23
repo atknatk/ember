@@ -14,6 +14,7 @@ from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.config import settings
+from app.models import *  # noqa: F403 — ensures all models are registered with Base.metadata
 from app.models.base import Base
 
 # Alembic Config object

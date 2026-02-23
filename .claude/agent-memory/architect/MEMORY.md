@@ -40,10 +40,25 @@
 - P01-03: Force JWKS refresh on kid miss (key rotation handling).
 - P01-03: config.py already has cognito_user_pool_id, cognito_app_client_id, aws_region -- no changes needed.
 
-## Implementation State After P01-02
+## Key Decisions Log (continued)
+
+- P01-04: Auto-confirm via admin_confirm_sign_up -- email verification deferred to Phase 2.
+- P01-04: USER_PASSWORD_AUTH (not SRP) -- backend-to-Cognito is HTTPS, SRP is for client-side SDKs.
+- P01-04: asyncio.to_thread() for boto3 calls -- standard library over aioboto3.
+- P01-04: Default character named "Ember" with template "companion".
+- P01-04: mem0_user_id = "user_{sub}" with lazy Mem0 user creation (no explicit API call).
+- P01-04: Single DB transaction for Profile + Character + Conversation.
+- P01-04: Idempotent registration handles Cognito-DB split-brain edge case.
+- P01-04: email-validator package needed for Pydantic EmailStr.
+
+## Implementation State After P01-03
 
 - `backend/app/models/` has all 7 model files + populated `__init__.py` with all imports.
-- `backend/app/dependencies.py` has `get_db` (real) + `get_current_user` (stub returning 501).
-- `backend/app/config.py` Settings class has cognito fields. No changes needed for P01-03.
-- `backend/app/core/` has `__init__.py` + `logging.py`.
-- `backend/requirements.txt` includes python-jose[cryptography] and httpx.
+- `backend/app/dependencies.py` has `get_db` (real) + `get_current_user` (real -- JWT verification + Profile lookup).
+- `backend/app/core/auth.py` has CognitoJWKSProvider + verify_cognito_token.
+- `backend/app/config.py` Settings class has cognito fields. No changes needed.
+- `backend/app/core/` has `__init__.py` + `logging.py` + `auth.py`.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py`.
+- `backend/app/services/__init__.py` is empty.
+- `backend/requirements.txt` includes python-jose[cryptography], httpx, boto3. Does NOT include email-validator.
+- `backend/app/routes/` has `__init__.py` + `health.py`. No auth routes yet.

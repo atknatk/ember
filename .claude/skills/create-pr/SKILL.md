@@ -224,6 +224,15 @@ All CI checks must pass before merge."
 
 ---
 
+## Step 9.5: Return to develop
+
+```bash
+git checkout develop
+git pull origin develop
+```
+
+---
+
 ## Step 10: Report
 
 ```

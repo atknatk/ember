@@ -106,7 +106,7 @@ Her feature bir veya birden fazla platformu kapsar:
 |-------|-----------|
 | `scripts/feature-queue.jsonl` | 69 feature tanımı (id, layer, deps, description) |
 | `scripts/issue-map.json` | Feature ID → GitHub issue no eşlemesi |
-| `scripts/feature-status.json` | Hangi feature'lar tamamlandı (pipeline tarafından yönetilir) |
+| GitHub issue labels | `status:pending/in-progress/done/blocked` — durum takibi |
 | `CLAUDE.md` | Tüm ajanların uyması gereken global kurallar |
 | `docs/PIPELINE-GUIDE.md` | Ajan spawnlama konvansiyonları (teknik referans) |
 
@@ -418,19 +418,13 @@ cat scripts/feature-queue.jsonl | jq -r '"\(.id)\t[\(.layer)]\t\(.name)"' | sort
 ### Bir Sonraki Feature'ı Bulmak
 
 ```bash
-# Hangi feature'lar henüz başlanmadı?
-# (feature-status.json'da olmayan = başlanmamış)
-python3 -c "
-import json
-queue = [json.loads(l) for l in open('scripts/feature-queue.jsonl') if l.strip()]
-try:
-    status = json.load(open('scripts/feature-status.json'))
-except:
-    status = {}
-pending = [f for f in queue if status.get(f['id']) != 'done']
-for f in pending[:10]:
-    print(f\"{f['id']}\t[{f['layer']}]\t{f['name']}\t deps:{f['deps']}\")
-"
+# status:pending olan issue'ları GitHub'dan listele (deps çözülmüş, hazır)
+gh issue list --repo atknatk/ember --label "status:pending" --state open \
+  --json number,title --jq '.[] | "\(.number)\t\(.title)"'
+
+# status:blocked olanları listele (deps henüz bitmemiş)
+gh issue list --repo atknatk/ember --label "status:blocked" --state open \
+  --json number,title --limit 20 --jq '.[] | "\(.number)\t\(.title)"'
 ```
 
 ### Faz 1 Örnek Çıktısı
@@ -467,7 +461,7 @@ Pipeline otomatik kontrol eder. Bağımlılık tamamlanmamışsa:
 
 ```
 ⚠️ WARNING: Dependency P01-01 is not done yet.
-   Status: not_started (not in feature-status.json)
+   GitHub issue #3 label: status:in-progress (not status:done)
    Are you sure you want to proceed? (yes/no)
 ```
 
@@ -477,7 +471,8 @@ Pipeline otomatik kontrol eder. Bağımlılık tamamlanmamışsa:
 
 ```bash
 # Belirli bir feature'ın bağımlılıklarının durumu
-cat scripts/feature-status.json
+gh issue view 4 --repo atknatk/ember --json labels -q '.labels[].name'
+# → status:pending (veya status:done, status:blocked, status:in-progress)
 ```
 
 ```json
@@ -504,25 +499,39 @@ Bu ikisi birbirinden bağımsız — paralel çalıştırılabilir.
 
 ## 11. Durum Takibi
 
-### feature-status.json
+### GitHub Issue Labels
 
-Pipeline bu dosyayı otomatik günceller. Manuel olarak da okunabilir/değiştirilebilir.
+Durum takibi tamamen GitHub issue label'larıyla yapılır. `feature-status.json` artık kullanılmıyor.
 
-```json
-{
-  "P01-01": "done",
-  "P01-02": "in-progress",
-  "P01-03": "done"
-}
+| Label | Anlam |
+|-------|-------|
+| `status:blocked` | Bağımlılıklar henüz tamamlanmamış |
+| `status:pending` | Hazır — deps çözüldü, sırada bekliyor |
+| `status:in-progress` | Pipeline şu an çalışıyor |
+| `status:done` | Tamamlandı, develop'a merge edildi |
+
+```bash
+# Tüm feature'ların durumunu GitHub'dan gör
+gh issue list --repo atknatk/ember --state open \
+  --json number,title,labels \
+  --jq '.[] | "\(.labels[].name | select(startswith("status:")))\t#\(.number) \(.title)"' \
+  | sort
+
+# Sadece hazır olanlar (çalıştırmaya hazır)
+gh issue list --repo atknatk/ember --label "status:pending" --state open
+
+# Devam edenler
+gh issue list --repo atknatk/ember --label "status:in-progress" --state open
 ```
 
-**Olası değerler:**
-- `"in-progress"` — Pipeline başlamış, henüz bitmemiş
-- `"done"` — Pipeline tamamlandı, PR açıldı
+**Label geçiş akışı:**
+```
+status:blocked  ──(deps merge)──►  status:pending
+status:pending  ──(pipeline başlar)──►  status:in-progress
+status:in-progress  ──(PR merge)──►  status:done
+```
 
-**Yoksa** — Feature henüz başlanmamış demek.
-
-### GitHub Issue Takibi
+### GitHub Issue Takibi (Yorum Geçmişi)
 
 Her pipeline adımında issue'ya comment eklenir:
 
@@ -817,8 +826,8 @@ Orchestrator 30 saniye bekler, bir kez daha dener. Hâlâ başarısız olursa:
 
 ### Proje Dosyaları
 - `scripts/feature-queue.jsonl` — Tüm 69 feature tanımı
-- `scripts/issue-map.json` — GitHub issue eşlemeleri
-- `scripts/feature-status.json` — Çalışma zamanı durum takibi
+- `scripts/issue-map.json` — GitHub issue eşlemeleri (ID → issue no)
+- GitHub issue labels — Çalışma zamanı durum takibi (`status:*`)
 - `docs/PIPELINE-GUIDE.md` — Ajan konvansiyonları, handoff formatları
 - `docs/standards/` — Backend, iOS, Android, testing standartları
 - `docs/03-mimari.md` — Sistem mimarisi

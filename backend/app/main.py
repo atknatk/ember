@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.logging import setup_logging
 from app.db.session import engine
-from app.routes import health
+from app.routes import auth, health
 
 logger = logging.getLogger("ember")
 
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
 
     # Route registration
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
+    app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 
     # Global exception handler
     @app.exception_handler(Exception)

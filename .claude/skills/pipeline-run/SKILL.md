@@ -37,7 +37,7 @@ Examples:
 |------|---------|
 | `scripts/feature-queue.jsonl` | Feature definitions (id, name, layer, deps, description) |
 | `scripts/issue-map.json` | Maps feature id → GitHub issue number |
-| `scripts/feature-status.json` | Tracks in-progress / done status |
+| GitHub issue labels | Status tracking: `status:pending` / `status:in-progress` / `status:done` / `status:blocked` |
 | `CLAUDE.md` | Global rules for all agents |
 
 ---
@@ -90,21 +90,27 @@ If not found: STOP. Report: "Feature '{FEATURE_ID}' not found in scripts/feature
 2. Otherwise, read `scripts/issue-map.json` and look up `issue-map[ID]`.
 3. If still not found, `ISSUE_NUMBER` = null (no issue tracking).
 
-### 1d. Check status
+### 1d. Check status via GitHub issue labels
 
-Read `scripts/feature-status.json`.
+```bash
+LABELS=$(gh issue view {ISSUE_NUMBER} --repo atknatk/ember --json labels -q '.labels[].name' 2>/dev/null || echo "")
+```
 
-If `feature-status[ID]` == `"done"`:
-→ Tell user: "Feature {ID} is already done. Re-run? (yes to continue)"
+If labels contain `status:done`:
+→ Tell user: "Feature {ID} is already done (issue #{ISSUE_NUMBER} has status:done). Re-run? (yes to continue)"
 
-If `feature-status[ID]` == `"in-progress"`:
+If labels contain `status:in-progress`:
 → Tell user: "Feature {ID} is in-progress. A previous pipeline may have started. Continue? (yes to resume)"
 
 ### 1e. Check dependencies
 
 For each dep_id in `DEPS`:
-1. Check `feature-status[dep_id]` in feature-status.json
-2. If any dep is NOT `"done"`, WARN: "Dependency {dep_id} is not done yet. Are you sure you want to proceed?"
+1. Look up dep's issue number from `scripts/issue-map.json`
+2. Check its labels:
+   ```bash
+   DEP_LABELS=$(gh issue view {DEP_ISSUE} --repo atknatk/ember --json labels -q '.labels[].name')
+   ```
+3. If labels do NOT contain `status:done`, WARN: "Dependency {dep_id} is not done yet (status: {label}). Are you sure you want to proceed?"
    - Wait for user confirmation before continuing.
 
 ### 1f. Check/create branch
@@ -120,13 +126,14 @@ git checkout develop
 git checkout -b feature/{PIPELINE_ID}
 ```
 
-### 1g. Mark in-progress
+### 1g. Mark in-progress via GitHub labels
 
-Update `scripts/feature-status.json`:
-```json
-{ "{ID}": "in-progress" }
+```bash
+gh issue edit {ISSUE_NUMBER} --repo atknatk/ember \
+  --add-label "status:in-progress" \
+  --remove-label "status:pending" \
+  --remove-label "status:blocked"
 ```
-Write back to the file.
 
 ### 1h. Comment on GitHub issue (if ISSUE_NUMBER set)
 
@@ -736,11 +743,12 @@ After fixes: re-run reviewer with the fixed files. Max 3 fix cycles. If still fa
 
 ## Step 8: Finalize
 
-### 8a. Update status
+### 8a. Update status via GitHub labels
 
-Write to `scripts/feature-status.json`:
-```json
-{ "{ID}": "done" }
+```bash
+gh issue edit {ISSUE_NUMBER} --repo atknatk/ember \
+  --add-label "status:done" \
+  --remove-label "status:in-progress"
 ```
 
 ### 8b. Final quality gate
@@ -764,7 +772,7 @@ gh pr create \
   --title "feat({NAME}): {NAME} [{ID}]" \
   --base develop \
   --head feature/{PIPELINE_ID} \
-  --label "agent:pipeline" \
+  --label "agent:pipeline,status:in-progress" \
   --body "## {NAME}
 
 {DESCRIPTION}

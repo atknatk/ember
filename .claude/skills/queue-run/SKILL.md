@@ -56,22 +56,40 @@ If any fail → STOP and report.
 
 ## Step 2: Build the Ordered Feature List
 
-Read `scripts/feature-queue.jsonl` and build an ordered list:
+Read `scripts/feature-queue.jsonl` and build an ordered list.
+**Status is tracked via GitHub issue labels** — read from GitHub, not from a local file.
 
 ```python
-import json
+import json, subprocess
 
 queue = [json.loads(line) for line in open("scripts/feature-queue.jsonl") if line.strip()]
+issue_map = json.load(open("scripts/issue-map.json"))
 
 # Filter to requested phases
 if PHASES != "all":
     queue = [f for f in queue if f["phase"] in PHASES]
 
-# Read current status
-try:
-    status = json.load(open("scripts/feature-status.json"))
-except:
-    status = {}
+# Get status for each feature from GitHub issue labels
+def get_issue_labels(issue_num):
+    r = subprocess.run(
+        ["gh", "issue", "view", str(issue_num), "--repo", "atknatk/ember",
+         "--json", "labels", "-q", ".labels[].name"],
+        capture_output=True, text=True
+    )
+    return r.stdout.strip().split("\n") if r.returncode == 0 else []
+
+def get_status(feature_id):
+    issue_num = issue_map.get(feature_id)
+    if not issue_num:
+        return "unknown"
+    labels = get_issue_labels(issue_num)
+    for s in ["status:done", "status:in-progress", "status:blocked", "status:pending"]:
+        if s in labels:
+            return s.replace("status:", "")
+    return "pending"
+
+# Build status dict (batch to avoid N+1 gh calls — read once per feature)
+status = {f["id"]: get_status(f["id"]) for f in queue}
 
 # Filter out already done
 pending = [f for f in queue if status.get(f["id"]) != "done"]
@@ -84,13 +102,12 @@ if FROM_ID:
         pending = pending[start_idx:]
 
 # Topological sort by deps (features whose deps are all done come first)
-# Simple approach: iterate, pick any feature whose deps are all done
 ordered = topological_sort(pending, status)
 ```
 
 **Topological sort logic:**
-1. Start with features that have no deps (or all deps already done)
-2. After each feature completes, re-evaluate which features are now unblocked
+1. Start with features whose all deps have `status:done` (GitHub label)
+2. After each feature merges, re-check which features are now unblocked
 3. Process in phase+seq order when multiple features are unblocked
 
 ---
@@ -139,7 +156,25 @@ if unmet:
 
 ---
 
-### Step B: Announce
+### Step B: Announce + Claim Issue
+
+Mark the issue as `status:in-progress` (claim it) and comment:
+
+```bash
+ISSUE_NUM=$(python3 -c "import json; m=json.load(open('scripts/issue-map.json')); print(m.get('{F["id"]}', ''))")
+if [ -n "$ISSUE_NUM" ]; then
+  # Claim: pending/blocked → in-progress
+  gh issue edit $ISSUE_NUM --repo atknatk/ember \
+    --add-label "status:in-progress" \
+    --remove-label "status:pending" \
+    --remove-label "status:blocked"
+
+  gh issue comment $ISSUE_NUM --repo atknatk/ember \
+    --body "⏳ **Queue Runner**: Starting [{F["id"]}] — {F["name"]}
+Queue position: {n}/{total} | Layer: {F["layer"]}
+Starting full pipeline now..."
+fi
+```
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -147,17 +182,6 @@ if unmet:
   Phase: {F["phase"]} | Layer: {F["layer"]}
   Deps:  {F["deps"] or "none"}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-Comment on the GitHub issue:
-```bash
-ISSUE_NUM=$(python3 -c "import json; m=json.load(open('scripts/issue-map.json')); print(m.get('{F["id"]}', ''))")
-if [ -n "$ISSUE_NUM" ]; then
-  gh issue comment $ISSUE_NUM --repo atknatk/ember \
-    --body "⏳ **Queue Runner**: Starting feature [{F["id"]}]
-Queue position: {n}/{total}
-Starting full pipeline now..."
-fi
 ```
 
 ---
@@ -238,17 +262,14 @@ git pull origin develop
 # Delete local feature branch
 git branch -d "feature/{F["pipeline_id"]}" 2>/dev/null || true
 
-# Confirm feature-status.json updated (pipeline should have done this)
-python3 -c "
-import json
-s = json.load(open('scripts/feature-status.json'))
-if s.get('{F["id"]}') != 'done':
-    s['{F["id"]}'] = 'done'
-    json.dump(s, open('scripts/feature-status.json', 'w'), indent=2)
-    print('  Updated feature-status.json: {F["id"]} → done')
-else:
-    print('  feature-status.json already shows done')
-"
+# Mark done on GitHub (pipeline-run Step 8a should have done this already,
+# but ensure it's correct)
+ISSUE_NUM=$(python3 -c "import json; m=json.load(open('scripts/issue-map.json')); print(m.get('{F["id"]}', ''))")
+if [ -n "$ISSUE_NUM" ]; then
+  gh issue edit $ISSUE_NUM --repo atknatk/ember \
+    --add-label "status:done" \
+    --remove-label "status:in-progress"
+fi
 ```
 
 Update local `status` dict: `status[F["id"]] = "done"`
@@ -257,7 +278,8 @@ Update local `status` dict: `status[F["id"]] = "done"`
 
 ### Step G: Unblock Dependents
 
-After each feature completes, find features that were blocked on it:
+After each feature merges, find features that were blocked on it
+and update their GitHub labels:
 
 ```python
 newly_unblocked = [
@@ -268,8 +290,21 @@ newly_unblocked = [
 
 if newly_unblocked:
     print(f"🔓 Newly unblocked: {[f['id'] for f in newly_unblocked]}")
-    # Add them to the processing queue if in scope
     for f in newly_unblocked:
+        dep_issue = issue_map.get(f["id"])
+        if dep_issue:
+            subprocess.run([
+                "gh", "issue", "edit", str(dep_issue),
+                "--repo", "atknatk/ember",
+                "--add-label", "status:pending",
+                "--remove-label", "status:blocked"
+            ])
+            subprocess.run([
+                "gh", "issue", "comment", str(dep_issue),
+                "--repo", "atknatk/ember",
+                "--body", f"🔓 **Unblocked** — All dependencies resolved ({F['id']} merged). Ready for pipeline."
+            ])
+        # Add to processing queue if in scope
         if f not in ordered:
             ordered.append(f)
 ```
@@ -328,12 +363,11 @@ Max 2 fix attempts per feature. If still failing → STOP queue, report.
 If a feature must be skipped (user asks, or dependency loop detected):
 
 ```bash
-python3 -c "
-import json
-s = json.load(open('scripts/feature-status.json'))
-s['{F[\"id\"]}'] = 'skipped'
-json.dump(s, open('scripts/feature-status.json', 'w'), indent=2)
-"
+SKIP_ISSUE=$(python3 -c "import json; m=json.load(open('scripts/issue-map.json')); print(m.get('{F["id"]}', ''))")
+if [ -n "$SKIP_ISSUE" ]; then
+  gh issue edit $SKIP_ISSUE --repo atknatk/ember --add-label "status:blocked"
+  gh issue comment $SKIP_ISSUE --repo atknatk/ember --body "⏭️ **Skipped** by queue runner."
+fi
 ```
 
 Log as skipped and continue to next.
@@ -384,5 +418,5 @@ Resume from failure: /queue-run --from {failed_id}
 4. **Wait for PR merge** — don't start next feature until PR merges to develop
 5. **On failure: STOP** — don't skip to next feature when current one fails
 6. **Resume is safe** — `--from P01-03` skips already-done features
-7. **feature-status.json is truth** — done = merged to develop
+7. **GitHub issue labels are truth** — `status:done` = merged to develop
 8. **Auto-merge only** — never force-merge or skip CI checks

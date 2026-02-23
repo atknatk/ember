@@ -79,6 +79,12 @@ npm-debug.log*
 *.swo
 *~
 
+# Claude agent memory (local, not for version control)
+.claude/agent-memory/
+backend/.claude/
+ios/.claude/
+android/.claude/
+
 # Secrets (NEVER COMMIT)
 *.pem
 *.key

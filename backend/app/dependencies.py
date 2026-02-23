@@ -1,18 +1,24 @@
 """Shared FastAPI dependency injection functions.
 
 Provides get_db for database session management and get_current_user
-for JWT authentication (stubbed until P01-03 auth feature).
+for JWT authentication via AWS Cognito.
 """
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncGenerator
-from typing import NoReturn
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import verify_cognito_token
 from app.db.session import AsyncSessionLocal
+from app.models.profile import Profile
+
+_bearer_scheme = HTTPBearer()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -21,13 +27,38 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-async def get_current_user() -> NoReturn:
-    """Stub for JWT authentication. Implemented in P01-03 (user-auth).
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Profile:
+    """Authenticate the request and return the current user's Profile.
+
+    Extracts the Bearer token from the Authorization header, verifies it
+    against Cognito JWKS, and looks up the corresponding profile in the
+    database.
+
+    Args:
+        credentials: The Bearer token extracted by FastAPI's HTTPBearer.
+        db: The async database session.
+
+    Returns:
+        The authenticated user's Profile ORM object.
 
     Raises:
-        HTTPException: Always raises 501 Not Implemented.
+        HTTPException: 401 if the token is missing, invalid, expired,
+            or the user is not found in the database.
     """
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Authentication not yet implemented",
+    claims = await verify_cognito_token(credentials.credentials)
+    cognito_sub = uuid.UUID(str(claims["sub"]))
+
+    result = await db.execute(
+        select(Profile).where(Profile.id == cognito_sub),
     )
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return profile

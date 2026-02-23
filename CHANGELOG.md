@@ -16,6 +16,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Feature queue for all 12 phases
 - [P01-01] FastAPI project scaffold with health endpoint, Docker setup, and dev tooling
 - [P01-02] SQLAlchemy async models for all 7 domain tables with Alembic migration
+- [P01-03] AWS Cognito JWT authentication middleware with JWKS caching
 
 ---
 

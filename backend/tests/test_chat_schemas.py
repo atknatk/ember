@@ -152,6 +152,54 @@ class TestMessageItem:
         )
         assert item.metadata is None
 
+    def test_metadata_non_dict_coerced_to_none(self) -> None:
+        """Non-dict, non-None metadata is coerced to None."""
+        item = MessageItem(
+            id="id1",
+            role="user",
+            content="Hello",
+            media_url=None,
+            metadata="invalid_string",  # type: ignore[arg-type]
+            created_at=datetime.now(tz=UTC),
+        )
+        assert item.metadata is None
+
+    def test_metadata_list_coerced_to_none(self) -> None:
+        """List metadata is coerced to None (not a dict)."""
+        item = MessageItem(
+            id="id1",
+            role="user",
+            content="Hello",
+            media_url=None,
+            metadata=["item1"],  # type: ignore[arg-type]
+            created_at=datetime.now(tz=UTC),
+        )
+        assert item.metadata is None
+
+    def test_integer_id_coerced_to_string(self) -> None:
+        """Integer id is coerced to string."""
+        item = MessageItem(
+            id=12345,  # type: ignore[arg-type]
+            role="user",
+            content="Hello",
+            media_url=None,
+            metadata=None,
+            created_at=datetime.now(tz=UTC),
+        )
+        assert item.id == "12345"
+
+    def test_media_url_preserved(self) -> None:
+        """media_url is preserved in the response item."""
+        item = MessageItem(
+            id="id1",
+            role="user",
+            content="Hello",
+            media_url="https://s3.amazonaws.com/bucket/image.jpg",
+            metadata=None,
+            created_at=datetime.now(tz=UTC),
+        )
+        assert item.media_url == "https://s3.amazonaws.com/bucket/image.jpg"
+
 
 # ---------------------------------------------------------------------------
 # MessageListResponse tests
@@ -232,3 +280,86 @@ class TestSSEEventModels:
             "type": "error",
             "message": "AI service temporarily unavailable",
         }
+
+    def test_chunk_event_model_dump_json(self) -> None:
+        """ChunkEvent serializes to valid JSON string."""
+        import json as json_mod
+
+        event = ChunkEvent(content="token")
+        raw = event.model_dump_json()
+        parsed = json_mod.loads(raw)
+        assert parsed["type"] == "chunk"
+        assert parsed["content"] == "token"
+
+    def test_action_event_calendar(self) -> None:
+        """ActionEvent for ADD_CALENDAR_EVENT serializes correctly."""
+        event = ActionEvent(
+            action="ADD_CALENDAR_EVENT",
+            payload={
+                "title": "Dentist",
+                "date": "2026-02-24",
+                "time": "15:00",
+                "duration_minutes": 60,
+            },
+        )
+        data = event.model_dump()
+        assert data["action"] == "ADD_CALENDAR_EVENT"
+        assert data["payload"]["title"] == "Dentist"
+        assert data["payload"]["duration_minutes"] == 60
+
+    def test_done_event_model_dump_json(self) -> None:
+        """DoneEvent serializes to valid JSON string."""
+        import json as json_mod
+
+        msg_id = str(uuid.uuid4())
+        event = DoneEvent(message_id=msg_id)
+        raw = event.model_dump_json()
+        parsed = json_mod.loads(raw)
+        assert parsed["type"] == "done"
+        assert parsed["message_id"] == msg_id
+
+
+# ---------------------------------------------------------------------------
+# SendMessageRequest edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestSendMessageRequestEdgeCases:
+    """Additional edge case tests for SendMessageRequest."""
+
+    def test_content_at_max_length_accepted(self) -> None:
+        """Content exactly at 4000 chars is accepted."""
+        req = SendMessageRequest(content="a" * 4000)
+        assert len(req.content) == 4000
+
+    def test_content_at_min_length_accepted(self) -> None:
+        """Content exactly at 1 char is accepted."""
+        req = SendMessageRequest(content="x")
+        assert req.content == "x"
+
+    def test_content_with_newlines_accepted(self) -> None:
+        """Content containing newlines is accepted."""
+        req = SendMessageRequest(content="line1\nline2\nline3")
+        assert "line1\nline2\nline3" == req.content
+
+    def test_content_with_unicode_accepted(self) -> None:
+        """Content with unicode characters is accepted."""
+        req = SendMessageRequest(content="Merhaba, nasilsiniz? Gunaydin!")
+        assert req.content == "Merhaba, nasilsiniz? Gunaydin!"
+
+    def test_media_url_at_max_length_accepted(self) -> None:
+        """media_url exactly at 2048 chars is accepted."""
+        url = "https://example.com/" + "a" * (2048 - len("https://example.com/"))
+        req = SendMessageRequest(content="Hello", media_url=url)
+        assert len(req.media_url) == 2048  # type: ignore[arg-type]
+
+    def test_media_url_exceeds_max_length_rejected(self) -> None:
+        """media_url over 2048 chars raises ValidationError."""
+        url = "https://example.com/" + "a" * 2050
+        with pytest.raises(ValidationError):
+            SendMessageRequest(content="Hello", media_url=url)
+
+    def test_missing_content_rejected(self) -> None:
+        """Missing content field raises ValidationError."""
+        with pytest.raises(ValidationError):
+            SendMessageRequest()  # type: ignore[call-arg]

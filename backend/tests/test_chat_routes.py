@@ -657,3 +657,332 @@ class TestGetMessages:
         data = resp.json()
         assert data["has_more"] is False
         assert data["next_cursor"] is None
+
+
+# ---------------------------------------------------------------------------
+# Additional POST tests (backend-tester)
+# ---------------------------------------------------------------------------
+
+
+class TestSendMessageAdditional:
+    """Additional tests for POST /api/v1/characters/:id/messages."""
+
+    @pytest.mark.asyncio
+    async def test_sse_response_headers(self, client: AsyncClient) -> None:
+        """SSE response includes Cache-Control and X-Accel-Buffering headers."""
+        ctx = _make_valid_context()
+
+        with (
+            patch(
+                "app.services.chat_service.ChatService.validate_send_message",
+                return_value=ctx,
+            ),
+            patch(
+                "app.services.chat_service.ChatService.stream_response",
+                return_value=_mock_stream_chunks(["Hi"]),
+            ),
+        ):
+            resp = await client.post(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+                json={"content": "Hello"},
+            )
+
+        assert resp.headers.get("cache-control") == "no-cache"
+        assert resp.headers.get("x-accel-buffering") == "no"
+
+    @pytest.mark.asyncio
+    async def test_invalid_uuid_returns_422(self, client: AsyncClient) -> None:
+        """Invalid UUID in path parameter returns 422."""
+        resp = await client.post(
+            "/api/v1/characters/not-a-uuid/messages",
+            json={"content": "Hello"},
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_missing_content_field_returns_422(self, client: AsyncClient) -> None:
+        """Missing 'content' field in request body returns 422."""
+        resp = await client.post(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+            json={},
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_valid_media_url_accepted(self, client: AsyncClient) -> None:
+        """Valid media_url is accepted along with content."""
+        ctx = _make_valid_context()
+
+        with (
+            patch(
+                "app.services.chat_service.ChatService.validate_send_message",
+                return_value=ctx,
+            ),
+            patch(
+                "app.services.chat_service.ChatService.stream_response",
+                return_value=_mock_stream_chunks(["Hello!"]),
+            ),
+        ):
+            resp = await client.post(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+                json={
+                    "content": "Look at this image",
+                    "media_url": "https://s3.amazonaws.com/bucket/photo.jpg",
+                },
+            )
+
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_action_event_payload_structure(self, client: AsyncClient) -> None:
+        """Action event has correct action and payload structure."""
+        ctx = _make_valid_context()
+        action = {
+            "action": "ADD_CALENDAR_EVENT",
+            "payload": {
+                "title": "Dentist",
+                "date": "2026-02-24",
+                "time": "15:00",
+                "duration_minutes": 60,
+            },
+        }
+
+        with (
+            patch(
+                "app.services.chat_service.ChatService.validate_send_message",
+                return_value=ctx,
+            ),
+            patch(
+                "app.services.chat_service.ChatService.stream_response",
+                return_value=_mock_stream_chunks(
+                    ["I've added the event."],
+                    action=action,
+                ),
+            ),
+        ):
+            resp = await client.post(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+                json={"content": "Add a dentist appointment at 3pm"},
+            )
+
+        events = _parse_sse_events(resp.text)
+        action_events = [e for e in events if e["type"] == "action"]
+        assert len(action_events) == 1
+        assert action_events[0]["action"] == "ADD_CALENDAR_EVENT"
+        assert action_events[0]["payload"]["title"] == "Dentist"
+        assert action_events[0]["payload"]["duration_minutes"] == 60
+
+    @pytest.mark.asyncio
+    async def test_sse_chunk_content_accumulated(self, client: AsyncClient) -> None:
+        """Accumulated chunk content forms the full response text."""
+        ctx = _make_valid_context()
+
+        with (
+            patch(
+                "app.services.chat_service.ChatService.validate_send_message",
+                return_value=ctx,
+            ),
+            patch(
+                "app.services.chat_service.ChatService.stream_response",
+                return_value=_mock_stream_chunks(["Hello", " ", "world", "!"]),
+            ),
+        ):
+            resp = await client.post(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+                json={"content": "Hi"},
+            )
+
+        events = _parse_sse_events(resp.text)
+        chunks = [e["content"] for e in events if e["type"] == "chunk"]
+        full_text = "".join(chunks)
+        assert full_text == "Hello world!"
+
+    @pytest.mark.asyncio
+    async def test_error_event_contains_message(self, client: AsyncClient) -> None:
+        """Error SSE event contains a user-friendly message."""
+        ctx = _make_valid_context()
+
+        with (
+            patch(
+                "app.services.chat_service.ChatService.validate_send_message",
+                return_value=ctx,
+            ),
+            patch(
+                "app.services.chat_service.ChatService.stream_response",
+                return_value=_mock_stream_error(),
+            ),
+        ):
+            resp = await client.post(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+                json={"content": "Hello"},
+            )
+
+        events = _parse_sse_events(resp.text)
+        error_events = [e for e in events if e["type"] == "error"]
+        assert len(error_events) == 1
+        assert "message" in error_events[0]
+        assert error_events[0]["message"] == "AI service temporarily unavailable"
+
+    @pytest.mark.asyncio
+    async def test_error_event_no_done_event(self, client: AsyncClient) -> None:
+        """When error event is emitted, no done event follows."""
+        ctx = _make_valid_context()
+
+        with (
+            patch(
+                "app.services.chat_service.ChatService.validate_send_message",
+                return_value=ctx,
+            ),
+            patch(
+                "app.services.chat_service.ChatService.stream_response",
+                return_value=_mock_stream_error(),
+            ),
+        ):
+            resp = await client.post(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+                json={"content": "Hello"},
+            )
+
+        events = _parse_sse_events(resp.text)
+        types = [e["type"] for e in events]
+        assert "done" not in types
+
+
+# ---------------------------------------------------------------------------
+# Additional GET tests (backend-tester)
+# ---------------------------------------------------------------------------
+
+
+class TestGetMessagesAdditional:
+    """Additional tests for GET /api/v1/characters/:id/messages."""
+
+    @pytest.mark.asyncio
+    async def test_limit_below_min_returns_422(self, client: AsyncClient) -> None:
+        """limit=0 returns 422 (minimum is 1)."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=0",
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_limit_above_max_returns_422(self, client: AsyncClient) -> None:
+        """limit=101 returns 422 (maximum is 100)."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=101",
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_messages_invalid_uuid_returns_422(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Invalid UUID in path parameter returns 422."""
+        resp = await client.get("/api/v1/characters/not-a-uuid/messages")
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_messages_response_items_structure(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Each message item in the response has the required fields."""
+        from app.schemas.chat import MessageItem, MessageListResponse
+
+        now = datetime.now(tz=UTC)
+        msg_id = str(uuid.uuid4())
+        items = [
+            MessageItem(
+                id=msg_id,
+                role="user",
+                content="Hello",
+                media_url=None,
+                metadata=None,
+                created_at=now,
+            ),
+        ]
+        mock_response = MessageListResponse(
+            items=items,
+            next_cursor=None,
+            has_more=False,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        msg = data["items"][0]
+        assert "id" in msg
+        assert "role" in msg
+        assert "content" in msg
+        assert "media_url" in msg
+        assert "metadata" in msg
+        assert "created_at" in msg
+        assert msg["id"] == msg_id
+        assert msg["role"] == "user"
+
+    @pytest.mark.asyncio
+    async def test_get_messages_next_cursor_format(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """next_cursor is a valid ISO 8601 string when has_more is true."""
+        from app.schemas.chat import MessageItem, MessageListResponse
+
+        now = datetime.now(tz=UTC)
+        cursor_value = (now - timedelta(minutes=10)).isoformat()
+        items = [
+            MessageItem(
+                id=str(uuid.uuid4()),
+                role="user",
+                content="Hello",
+                media_url=None,
+                metadata=None,
+                created_at=now,
+            ),
+        ]
+        mock_response = MessageListResponse(
+            items=items,
+            next_cursor=cursor_value,
+            has_more=True,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=1",
+            )
+
+        data = resp.json()
+        # Verify next_cursor is a parseable ISO 8601 string
+        datetime.fromisoformat(data["next_cursor"])
+
+    @pytest.mark.asyncio
+    async def test_get_messages_conversation_not_found_returns_404(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Conversation not found returns 404."""
+        from fastapi import HTTPException, status
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            side_effect=HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found",
+            ),
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+            )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Conversation not found"

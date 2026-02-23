@@ -1,0 +1,97 @@
+"""Application configuration using pydantic-settings.
+
+Loads configuration from environment variables, .env file (local development),
+and AWS Secrets Manager (production when debug=False).
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("ember")
+
+
+def _load_secret(secret_name: str, region: str) -> dict[str, object]:
+    """Load secrets from AWS Secrets Manager."""
+    import boto3  # noqa: ANN001
+
+    client = boto3.client("secretsmanager", region_name=region)
+    response = client.get_secret_value(SecretId=secret_name)
+    return json.loads(response["SecretString"])  # type: ignore[no-any-return]
+
+
+class Settings(BaseSettings):
+    """Ember backend configuration.
+
+    Priority: environment variables > .env file > defaults.
+    In production (debug=False), secrets are loaded from AWS Secrets Manager.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    # App
+    app_name: str = "Ember"
+    app_version: str = "1.0.0"
+    debug: bool = False
+    log_level: str = "INFO"
+
+    # AWS
+    aws_region: str = "us-east-1"
+    aws_secret_name: str = "ember/prod/secrets"
+
+    # Database
+    database_url: str = ""
+
+    # Cognito
+    cognito_user_pool_id: str = ""
+    cognito_app_client_id: str = ""
+
+    # LLM
+    llm_provider: str = "claude"
+    claude_model: str = "claude-sonnet-4-6"
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+
+    # Memory
+    mem0_api_key: str = ""
+
+    # Voice
+    elevenlabs_api_key: str = ""
+
+    # Storage
+    s3_bucket_name: str = ""
+
+    # Push Notifications
+    firebase_credentials_json: str = ""
+
+    # CORS
+    cors_origins: str = "*"
+
+    def model_post_init(self, __context: object) -> None:
+        """Load secrets from AWS Secrets Manager in production."""
+        if not self.debug and self.aws_secret_name:
+            try:
+                secrets = _load_secret(self.aws_secret_name, self.aws_region)
+                for key, value in secrets.items():
+                    if hasattr(self, key):
+                        object.__setattr__(self, key, value)
+            except Exception:
+                logger.warning(
+                    "Failed to load secrets from AWS Secrets Manager. "
+                    "Falling back to environment variables.",
+                    exc_info=True,
+                )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return cached application settings singleton."""
+    return Settings()
+
+
+settings = get_settings()

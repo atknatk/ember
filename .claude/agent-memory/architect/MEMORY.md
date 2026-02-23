@@ -74,3 +74,25 @@
 - P01-05: mem0_agent_id uniqueness fallback: {template}_{uuid[:8]}_{user_id} for duplicate templates.
 - P01-05: New config field: claude_haiku_model = "claude-haiku-4-5".
 - P01-05: No Mem0 API calls during character CRUD -- agent_id stored for future messaging use.
+
+## Key Decisions Log (P01-06)
+
+- P01-06: SSE over WebSocket for chat streaming -- request-response, not bidirectional.
+- P01-06: Background task persistence (after stream) -- minimizes TTFT (<1s target).
+- P01-06: Background tasks use separate AsyncSessionLocal() -- request session closes with StreamingResponse.
+- P01-06: Separate Haiku call for intent extraction -- keeps Sonnet response natural, cheaper.
+- P01-06: 50 messages context (configurable via max_context_messages) -- CLAUDE.md says 30-50.
+- P01-06: 3 parallel fetches in asyncio.gather(): global Mem0, character Mem0, DB last 50 messages.
+- P01-06: Mem0 SDK is synchronous -- all calls wrapped in asyncio.to_thread().
+- P01-06: Chat router registered under /api/v1/characters prefix -- routes use /{character_id}/messages, no conflict with character CRUD router.
+- P01-06: Auto-create conversation if missing (defensive).
+- P01-06: Action metadata stored on assistant message's JSONB metadata_ column.
+- P01-06: SSE format: data: {json}\n\n with type field in JSON (no event: header).
+
+## Implementation State After P01-05
+
+- `backend/app/config.py` now has `claude_haiku_model: str = "claude-haiku-4-5"`.
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py`.
+- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py`.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py`.
+- `backend/app/main.py` registers health, auth, and characters routers.

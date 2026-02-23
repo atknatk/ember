@@ -19,6 +19,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P01-03] AWS Cognito JWT authentication middleware with JWKS caching
 - [P01-04] Auth endpoints: register, login, refresh with Cognito integration
 - [P01-05] Character CRUD endpoints with Claude Haiku prompt generation
+- [P01-06] SSE streaming chat endpoint with Claude AI integration, Mem0 memory, and device action intents
 
 ---
 

@@ -11,7 +11,7 @@
 - Auth model uses `Profile` (not `User`) -- `backend/app/models/profile.py`
 - Auth dependency is `get_current_user` returning `Profile` from `app.dependencies`
 - Route prefix set in `main.py`, routes use relative paths (`""`, `"/{character_id}"`)
-- Backend-tester adds `_extended.py` test files alongside backend-dev's base test files
+- Backend-tester adds additional tests in the SAME test files (appended as extra classes)
 - Tests use `os.environ.setdefault("DEBUG", "true")` at top to bypass AWS Secrets Manager
 
 ## Grep Checks to Always Run
@@ -24,5 +24,14 @@
 7. `TODO|FIXME` in implementation files
 8. f-string SQL patterns (SQL injection check)
 
+## Chat Streaming Review Notes
+- Validation-before-streaming: `validate_send_message()` runs BEFORE `StreamingResponse` is created; HTTPExceptions produce proper 4xx JSON errors
+- Background tasks use `AsyncSessionLocal()` (own session), NOT request-scoped `db`
+- Mem0 SDK is synchronous; all calls wrapped in `asyncio.to_thread()`
+- SSE events use JSON `type` field (no SSE `event:` header)
+- Message model uses `metadata_` (Python name) mapped to `metadata` (column name) via `mapped_column("metadata", JSONB)`
+- `asyncio.gather(..., return_exceptions=True)` for Mem0 resilience
+
 ## Completed Reviews
 - P01-05 character-crud (backend layer): APPROVED 2026-02-23, 0 issues found
+- P01-06 chat-streaming (backend layer): APPROVED 2026-02-24, 0 issues found, 130 tests at 100% coverage

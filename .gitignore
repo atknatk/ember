@@ -79,8 +79,8 @@ npm-debug.log*
 *.swo
 *~
 
-# Claude agent memory (local, not for version control)
-.claude/agent-memory/
+# Claude agent memory — version-controlled for cross-run knowledge retention
+# .claude/agent-memory/ is intentionally tracked
 backend/.claude/
 ios/.claude/
 android/.claude/

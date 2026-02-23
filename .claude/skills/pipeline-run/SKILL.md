@@ -758,6 +758,18 @@ cd backend && python -m pytest tests/ -q 2>&1 | tail -3
 cd android && ./gradlew test 2>&1 | tail -3
 ```
 
+### 8b.5. Commit agent memory updates
+
+```bash
+git add .claude/agent-memory/ 2>/dev/null
+
+if git diff --cached --quiet .claude/agent-memory/; then
+  echo "No agent memory changes to commit."
+else
+  git commit -m "chore({NAME}): update agent memory [agent:pipeline]"
+fi
+```
+
 ### 8c. Push branch
 
 ```bash
@@ -821,6 +833,18 @@ gh issue comment {ISSUE_NUMBER} --repo atknatk/ember \
 
 All tests passing. Review approved. Ready for human merge."
 ```
+
+### 8f. Return to develop
+
+Switch back to develop so the workspace is ready for the next feature:
+
+```bash
+git checkout develop
+git pull origin develop
+```
+
+Note: The local feature branch is NOT deleted — it may be needed if CI fails.
+`queue-run` Step F handles branch deletion after confirmed merge.
 
 ---
 

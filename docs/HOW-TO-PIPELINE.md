@@ -1,7 +1,22 @@
 # Ember Agent Pipeline — Kullanım Kılavuzu
 
-Bu belge, `/pipeline-run` komutunun ne yaptığını, nasıl kullanılacağını ve bir featurın baştan sona nasıl
+Bu belge, tüm pipeline skill'lerinin ne yaptığını, nasıl kullanılacağını ve bir featurın baştan sona nasıl
 implement edildiğini açıklar. **Yeni bir seans açtığında bu belgeyi okuman yeterli — her şey burada.**
+
+---
+
+## Skill Özeti (TL;DR)
+
+| Skill | Kullanım | Ne Yapar |
+|-------|---------|---------|
+| `/pipeline-run P01-01` | Tek feature | Bir feature'ı 9 ajanla implement eder, PR açar |
+| `/queue-run 1` | Faz bazlı | Faz 1'deki tüm feature'ları sırayla işler |
+| `/queue-run 1 2 3` | Çok faz | Birden fazla fazı sırayla işler |
+| `/queue-run` | Tam proje | Tüm 69 feature'ı otomatik implement eder |
+| `/queue-run --from P01-03` | Devam | Belirli feature'dan devam eder |
+| `/queue-run 1 --dry-run` | Önizleme | Ne yapacağını gösterir, kod yazmaz |
+| `/verify` | Kalite kontrolü | Test + lint + security scan çalıştırır |
+| `/create-pr` | Manuel PR | Manuel implement sonrası PR açar |
 
 ---
 
@@ -10,22 +25,27 @@ implement edildiğini açıklar. **Yeni bir seans açtığında bu belgeyi okuma
 1. [Genel Bakış](#1-genel-bakış)
 2. [Temel Kavramlar](#2-temel-kavramlar)
 3. [İlk Kullanım — Adım Adım](#3-ilk-kullanım--adım-adım)
-4. [Komut Sözdizimi](#4-komut-sözdizimi)
-5. [Pipeline Aşamaları](#5-pipeline-aşamaları)
-6. [Hangi Feature'ı Çalıştıracağını Seçmek](#6-hangi-featureı-çalıştıracağını-seçmek)
-7. [Bağımlılık Yönetimi](#7-bağımlılık-yönetimi)
-8. [Durum Takibi](#8-durum-takibi)
-9. [Sık Karşılaşılan Durumlar](#9-sık-karşılaşılan-durumlar)
-10. [Çıktılar — Ne Üretilir?](#10-çıktılar--ne-üretilir)
-11. [Hata Durumları ve Çözümleri](#11-hata-durumları-ve-çözümleri)
-12. [Faz Sıralaması ve Öncelikler](#12-faz-sıralaması-ve-öncelikler)
+4. [pipeline-run Kullanımı](#4-pipeline-run-kullanımı)
+5. [queue-run Kullanımı](#5-queue-run-kullanımı)
+6. [verify Kullanımı](#6-verify-kullanımı)
+7. [create-pr Kullanımı](#7-create-pr-kullanımı)
+8. [Pipeline Aşamaları](#8-pipeline-aşamaları)
+9. [Hangi Feature'ı Çalıştıracağını Seçmek](#9-hangi-featureı-çalıştıracağını-seçmek)
+10. [Bağımlılık Yönetimi](#10-bağımlılık-yönetimi)
+11. [Durum Takibi](#11-durum-takibi)
+12. [Çıktılar — Ne Üretilir?](#12-çıktılar--ne-üretilir)
+13. [Hata Durumları ve Çözümleri](#13-hata-durumları-ve-çözümleri)
+14. [Faz Sıralaması ve Öncelikler](#14-faz-sıralaması-ve-öncelikler)
 
 ---
 
 ## 1. Genel Bakış
 
-`/pipeline-run`, tek bir komutla bir feature'ı **9 uzman ajanın işbirliğiyle** implement eden bir
-Claude Code skill'idir.
+Ember'ın 4 pipeline skill'i vardır:
+
+### `/pipeline-run` — Tek Feature
+
+Tek bir feature'ı 9 uzman ajanın işbirliğiyle implement eder.
 
 ```
 Sen                 →  /pipeline-run P01-01
@@ -33,13 +53,25 @@ Orchestrator        →  9 ajan koordine eder
 Çıktı              →  Kod + Testler + Dokümantasyon + PR
 ```
 
-**Tek komutla gerçekleşen işlemler:**
-- Mimari tasarım + spec yazımı (architect agent)
-- Kod implementasyonu (backend-dev, ios-dev, android-dev)
-- Test yazımı (backend-tester, ios-tester, android-tester)
-- Dokümantasyon (doc-writer)
-- Kod incelemesi (reviewer)
-- GitHub'a branch push + PR açma + issue güncelleme
+### `/queue-run` — Faz/Proje Bazlı Toplu Çalışma
+
+Bir fazın (veya tüm projenin) feature'larını sırayla işler. Her feature tamamlanıp PR merge olmadan
+bir sonrakine geçmez. Bağımlılık grafiğine göre otomatik sıralama yapar.
+
+```
+Sen                 →  /queue-run 1
+Queue Runner        →  Faz 1'i bağımlılık sırasıyla işler
+                        P01-01 → merge → P01-02 → merge → ...
+Çıktı              →  Tüm faz implement edilmiş, develop'a merge
+```
+
+### `/verify` — Kalite Kontrolü
+
+Herhangi bir anda test + lint + security scan çalıştırır.
+
+### `/create-pr` — Manuel PR
+
+Manuel implement ettikten sonra PR açar (pipeline dışı kullanım için).
 
 ---
 
@@ -136,7 +168,7 @@ GitHub'da PR'ı aç, gözden geçir, merge et.
 
 ---
 
-## 4. Komut Sözdizimi
+## 4. pipeline-run Kullanımı
 
 ```
 /pipeline-run <feature-id> [--issue <N>] ["<açıklama>"]
@@ -173,7 +205,170 @@ GitHub'da PR'ı aç, gözden geçir, merge et.
 
 ---
 
-## 5. Pipeline Aşamaları
+## 5. queue-run Kullanımı
+
+Bir veya birden fazla fazın feature'larını **sırayla** implement eder. Her feature PR merge
+olmadan sıradaki başlamaz.
+
+```
+/queue-run [all|<faz>|<faz> <faz> ...] [--from <feature-id>] [--dry-run]
+```
+
+### Örnekler
+
+```bash
+# Faz 1'deki tüm feature'ları sırayla çalıştır
+/queue-run 1
+
+# Birden fazla faz (sırayla)
+/queue-run 1 2 3
+
+# Tüm 69 feature (12 faz, bağımlılık sırasıyla)
+/queue-run
+
+# Yarım kalan queue'ya devam et
+/queue-run --from P01-04
+
+# Sadece belirli faz, yarım kalmışsa devam et
+/queue-run 1 --from P01-06
+
+# Ne yapacağını önce gör (kod yazmaz, sadece sıralamayı gösterir)
+/queue-run 1 --dry-run
+```
+
+### --dry-run Çıktısı
+
+```
+=== Queue Run Plan — Phase 1 ===
+
+  1. P01-01 [backend] project-setup         deps: none
+  2. P01-02 [backend] user-auth             deps: P01-01
+  3. P01-03 [backend] database-schema       deps: P01-01
+  4. P01-04 [backend] chat-stream           deps: P01-02, P01-03
+  5. P01-05 [backend] mem0-integration      deps: P01-02, P01-03
+  ...
+
+Total: 10 features
+Already done: 0
+To process: 10
+
+Run without --dry-run to start.
+```
+
+### queue-run Akışı
+
+```
+/queue-run 1
+    │
+    ├─ develop'tan başla, git pull
+    │
+    ├─ Bağımlılık sırası: P01-01 önce (bağımlılığı yok)
+    │
+    ├─ /pipeline-run P01-01
+    │      → feature/p01/project-setup branch
+    │      → 9 ajan çalışır
+    │      → PR açılır, auto-merge aktif
+    │      → CI geçince develop'a merge olur
+    │
+    ├─ P01-01 merge olunca P01-02 ve P01-03 unblock olur
+    │
+    ├─ /pipeline-run P01-02
+    │   ...
+    │
+    └─ Faz tamamlanınca özet rapor
+```
+
+### Hata Durumunda
+
+Queue herhangi bir feature'da hata alırsa **durur** (sıradakine geçmez):
+
+```
+❌ Queue paused at P01-04.
+
+Error: [hata detayı]
+
+Resume with:
+  /queue-run --from P01-04
+```
+
+---
+
+## 6. verify Kullanımı
+
+Herhangi bir anda test + lint + security scan çalıştırır.
+
+```
+/verify [--backend] [--ios] [--android] [--all]
+```
+
+### Örnekler
+
+```bash
+# Otomatik detect (değişen dosyalara göre platform seç)
+/verify
+
+# Sadece backend
+/verify --backend
+
+# Sadece Android
+/verify --android
+
+# Tüm platformlar
+/verify --all
+```
+
+### Çıktı
+
+```
+## Verify Report — feature/p01/project-setup
+
+| Check          | Platform | Result   | Detail                      |
+|----------------|----------|----------|-----------------------------|
+| Ruff lint      | Backend  | ✅ Pass  | 0 errors                    |
+| MyPy types     | Backend  | ✅ Pass  | 0 errors                    |
+| Pytest         | Backend  | ✅ Pass  | 47 passed, coverage 84%     |
+| Gradle lint    | Android  | ✅ Pass  | 0 errors                    |
+| Gradle test    | Android  | ✅ Pass  | 23 passed                   |
+| SwiftLint      | iOS      | ⚠️ Skip  | Not installed locally       |
+| Security scan  | All      | ✅ Pass  | No hardcoded secrets        |
+
+Overall: ✅ PASS
+```
+
+---
+
+## 7. create-pr Kullanımı
+
+Pipeline dışında manuel implement ettikten sonra PR açmak için.
+
+```
+/create-pr [feature-id] [--draft]
+```
+
+### Örnekler
+
+```bash
+# Mevcut feature branch'inden PR aç (branch adından feature ID'yi çıkarır)
+/create-pr
+
+# Feature ID'yi explicit belirt
+/create-pr P01-03
+
+# Draft PR aç (auto-merge kapalı)
+/create-pr P01-03 --draft
+```
+
+### Ne Yapar?
+
+1. Mevcut branch'i `origin`'e push eder
+2. Handoff dosyalarını okuyarak PR açıklaması oluşturur
+3. `agent:pipeline` label'ı ekler
+4. Auto-merge aktif eder (draft değilse)
+5. GitHub issue'ya PR URL'ini comment olarak ekler
+
+---
+
+## 8. Pipeline Aşamaları
 
 Pipeline 8 adımda ilerler:
 
@@ -211,7 +406,7 @@ Faz 7: Final Wave
 
 ---
 
-## 6. Hangi Feature'ı Çalıştıracağını Seçmek
+## 9. Hangi Feature'ı Çalıştıracağını Seçmek
 
 ### Faz Bazlı Sıralama
 
@@ -262,7 +457,7 @@ P01-03  ──→  P01-04, P01-05
 
 ---
 
-## 7. Bağımlılık Yönetimi
+## 10. Bağımlılık Yönetimi
 
 Bir feature, başka feature'lara bağımlı olabilir.
 
@@ -307,7 +502,7 @@ Bu ikisi birbirinden bağımsız — paralel çalıştırılabilir.
 
 ---
 
-## 8. Durum Takibi
+## 11. Durum Takibi
 
 ### feature-status.json
 
@@ -364,7 +559,7 @@ docs/pipeline/
 
 ---
 
-## 9. Sık Karşılaşılan Durumlar
+## 12. Sık Karşılaşılan Durumlar
 
 ### Durum 1: Backend-Only Feature
 
@@ -441,7 +636,7 @@ Maximum 3 round. Hâlâ başarısız olursa sana rapor eder.
 
 ---
 
-## 10. Çıktılar — Ne Üretilir?
+## 13. Çıktılar — Ne Üretilir?
 
 Başarılı bir `/pipeline-run` şunları üretir:
 
@@ -509,7 +704,7 @@ docs/
 
 ---
 
-## 11. Hata Durumları ve Çözümleri
+## 14. Hata Durumları ve Çözümleri
 
 ### "Feature not found in scripts/feature-queue.jsonl"
 
@@ -578,7 +773,7 @@ Orchestrator 30 saniye bekler, bir kez daha dener. Hâlâ başarısız olursa:
 
 ---
 
-## 12. Faz Sıralaması ve Öncelikler
+## 15. Faz Sıralaması ve Öncelikler
 
 12 faz, 69 feature:
 
@@ -614,10 +809,16 @@ Orchestrator 30 saniye bekler, bir kez daha dener. Hâlâ başarısız olursa:
 
 ## Referanslar
 
-- **Skill tanımı**: `.claude/skills/pipeline-run/SKILL.md` — Orchestrator'ın tam implementasyonu
-- **Pipeline rehberi**: `docs/PIPELINE-GUIDE.md` — Ajan konvansiyonları, handoff formatları
-- **Feature listesi**: `scripts/feature-queue.jsonl` — Tüm 69 feature
-- **Issue takibi**: `scripts/issue-map.json` — GitHub issue eşlemeleri
-- **Durum**: `scripts/feature-status.json` — Hangi feature'lar tamamlandı
-- **Mimari**: `docs/03-mimari.md`
-- **Standartlar**: `docs/standards/` (backend, ios, android, testing, common)
+### Skill Tanımları (teknik implementasyon)
+- `.claude/skills/pipeline-run/SKILL.md` — Tek feature orchestrator
+- `.claude/skills/queue-run/SKILL.md` — Faz/proje bazlı toplu işlemci
+- `.claude/skills/verify/SKILL.md` — Kalite kontrol runner
+- `.claude/skills/create-pr/SKILL.md` — PR oluşturucu
+
+### Proje Dosyaları
+- `scripts/feature-queue.jsonl` — Tüm 69 feature tanımı
+- `scripts/issue-map.json` — GitHub issue eşlemeleri
+- `scripts/feature-status.json` — Çalışma zamanı durum takibi
+- `docs/PIPELINE-GUIDE.md` — Ajan konvansiyonları, handoff formatları
+- `docs/standards/` — Backend, iOS, Android, testing standartları
+- `docs/03-mimari.md` — Sistem mimarisi

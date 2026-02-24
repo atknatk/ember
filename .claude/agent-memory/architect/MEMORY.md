@@ -89,6 +89,27 @@
 - P01-06: Action metadata stored on assistant message's JSONB metadata_ column.
 - P01-06: SSE format: data: {json}\n\n with type field in JSON (no event: header).
 
+## Key Decisions Log (P01-07)
+
+- P01-07: Composite cursor (created_at, id) over plain ISO timestamp -- fixes correctness bug with same-timestamp messages.
+- P01-07: Base64 URL-safe JSON cursor encoding per docs/standards/common.md Section 6.
+- P01-07: No backward compatibility for old plain-ISO cursors -- no mobile client has shipped yet.
+- P01-07: No index changes needed -- existing idx_messages_conv_time is sufficient, id tiebreaker operates on small result set.
+- P01-07: SQLAlchemy tuple_() for row-value comparison: (created_at, id) < ($ts, $id).
+- P01-07: Default limit stays at 20 (matches issue description; common.md says 30 but issue takes precedence).
+- P01-07: Single HTTPException(400) for all cursor parse failures -- do not expose internal error details.
+- P01-07: MODIFY-only feature -- no new files created in backend, only updates to 4 existing files.
+
+## Implementation State After P01-06
+
+- `backend/app/config.py` now has `claude_haiku_model`, `claude_model`, `max_context_messages: int = 50`.
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py`.
+- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py`.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py`.
+- `backend/app/main.py` registers health, auth, characters, and chat routers.
+- `backend/app/db/session.py` has AsyncSessionLocal (used by background tasks).
+- Tests: `test_chat_routes.py` (989 lines) and `test_chat_service.py` (1947 lines) with comprehensive coverage.
+
 ## Implementation State After P01-05
 
 - `backend/app/config.py` now has `claude_haiku_model: str = "claude-haiku-4-5"`.
@@ -96,3 +117,9 @@
 - `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py`.
 - `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py`.
 - `backend/app/main.py` registers health, auth, and characters routers.
+
+## Spec Writing Patterns (P01-07 lesson)
+
+- When a feature mostly enhances an existing implementation, clearly document "What Already Exists" vs "What Changes" in a comparison table.
+- For MODIFY-only features with no new files, the file manifest is small. Still list every modified file explicitly.
+- When docs/standards/common.md and the issue description conflict on specifics (e.g., default limit 30 vs 20), note the discrepancy and state which takes precedence and why.

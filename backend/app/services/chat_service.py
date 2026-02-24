@@ -8,16 +8,18 @@ message history retrieval.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 from anthropic import AsyncAnthropic
 from fastapi import HTTPException, status
 from mem0 import MemoryClient
-from sqlalchemy import select, true, update
+from sqlalchemy import select, true, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -62,6 +64,46 @@ Assistant response to analyze:
 {assistant_response}"""
 
 _SUPPORTED_ACTIONS = frozenset({"SET_ALARM", "ADD_CALENDAR_EVENT"})
+
+
+# ---------------------------------------------------------------------------
+# Cursor helpers for composite (created_at, id) pagination
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MessageCursor:
+    """Decoded composite cursor for keyset pagination."""
+
+    ts: datetime
+    id: uuid.UUID
+
+
+def _encode_cursor(ts: datetime, msg_id: uuid.UUID) -> str:
+    """Encode a (created_at, id) pair into an opaque base64 URL-safe cursor string."""
+    payload = {"ts": ts.isoformat(), "id": str(msg_id)}
+    raw = json.dumps(payload).encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> MessageCursor:
+    """Decode a base64 URL-safe cursor string into a MessageCursor.
+
+    Raises HTTPException(400) for any malformed input.
+    """
+    try:
+        # Restore base64 padding
+        padded = cursor + "=" * (-len(cursor) % 4)
+        raw = base64.urlsafe_b64decode(padded)
+        payload = json.loads(raw)
+        ts = datetime.fromisoformat(payload["ts"])
+        msg_id = uuid.UUID(payload["id"])
+        return MessageCursor(ts=ts, id=msg_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid cursor format",
+        )
 
 
 class ChatService:
@@ -225,7 +267,7 @@ class ChatService:
         self,
         character_id: uuid.UUID,
         user_id: uuid.UUID,
-        cursor: datetime | None,
+        cursor: MessageCursor | None,
         limit: int,
     ) -> MessageListResponse:
         """Retrieve paginated message history for a character's conversation."""
@@ -248,7 +290,7 @@ class ChatService:
                 detail="Conversation not found",
             )
 
-        # Cursor-based query
+        # Cursor-based query with composite (created_at, id) cursor
         stmt = (
             select(Message)
             .where(Message.conversation_id == conversation.id)
@@ -256,7 +298,10 @@ class ChatService:
             .limit(limit + 1)
         )
         if cursor is not None:
-            stmt = stmt.where(Message.created_at < cursor)
+            stmt = stmt.where(
+                tuple_(Message.created_at, Message.id)
+                < tuple_(cursor.ts, cursor.id),
+            )
 
         result = await self.db.execute(stmt)
         rows = result.scalars().all()
@@ -266,7 +311,7 @@ class ChatService:
 
         next_cursor: str | None = None
         if has_more and items:
-            next_cursor = items[-1].created_at.isoformat()
+            next_cursor = _encode_cursor(items[-1].created_at, items[-1].id)
 
         return MessageListResponse(
             items=[

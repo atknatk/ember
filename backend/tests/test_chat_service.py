@@ -14,6 +14,7 @@ os.environ.setdefault(
 )
 
 import asyncio  # noqa: E402
+import base64  # noqa: E402
 import json  # noqa: E402
 import uuid  # noqa: E402
 from collections.abc import AsyncGenerator  # noqa: E402
@@ -25,7 +26,10 @@ import pytest  # noqa: E402
 
 from app.services.chat_service import (  # noqa: E402
     ChatService,
+    MessageCursor,
+    _decode_cursor,
     _deduplicate_memories,
+    _encode_cursor,
     _persist_exchange,
 )
 
@@ -1234,7 +1238,7 @@ class TestGetMessagesAdditional:
 
     @pytest.mark.asyncio
     async def test_cursor_filter_applied(self) -> None:
-        """get_messages applies cursor filter correctly."""
+        """get_messages applies composite cursor filter correctly."""
         mock_db = AsyncMock()
         service = ChatService(mock_db)
 
@@ -1257,11 +1261,14 @@ class TestGetMessagesAdditional:
 
         mock_db.execute = AsyncMock(side_effect=_mock_execute)
 
-        cursor_time = datetime.now(tz=UTC) - timedelta(hours=1)
+        cursor = MessageCursor(
+            ts=datetime.now(tz=UTC) - timedelta(hours=1),
+            id=uuid.uuid4(),
+        )
         response = await service.get_messages(
             character_id=FAKE_CHARACTER_ID,
             user_id=FAKE_USER_ID,
-            cursor=cursor_time,
+            cursor=cursor,
             limit=20,
         )
 
@@ -1307,7 +1314,7 @@ class TestGetMessagesAdditional:
 
     @pytest.mark.asyncio
     async def test_next_cursor_matches_last_item(self) -> None:
-        """next_cursor equals the last item's created_at when has_more is true."""
+        """next_cursor encodes the last item's (created_at, id) as base64 JSON."""
         mock_db = AsyncMock()
         service = ChatService(mock_db)
 
@@ -1347,8 +1354,11 @@ class TestGetMessagesAdditional:
 
         assert response.has_more is True
         assert len(response.items) == 3
-        # next_cursor should be the created_at of the last returned item
-        assert response.next_cursor == messages[2].created_at.isoformat()
+        # next_cursor should be a base64-encoded JSON with ts and id of last item
+        assert response.next_cursor is not None
+        decoded = _decode_cursor(response.next_cursor)
+        assert decoded.ts == messages[2].created_at
+        assert decoded.id == messages[2].id
 
 
 # ---------------------------------------------------------------------------
@@ -1944,3 +1954,887 @@ class TestGetRecentMessages:
         result = await service._get_recent_messages(FAKE_CONVERSATION_ID)
 
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Composite cursor helper unit tests (U1-U7)
+# ---------------------------------------------------------------------------
+
+
+class TestCursorHelpers:
+    """Unit tests for _encode_cursor, _decode_cursor, and MessageCursor."""
+
+    # --- U1: _encode_cursor returns a string ---
+
+    def test_encode_cursor_returns_string(self) -> None:
+        """_encode_cursor returns a string."""
+        now = datetime.now(tz=UTC)
+        msg_id = uuid.uuid4()
+        result = _encode_cursor(now, msg_id)
+        assert isinstance(result, str)
+
+    # --- U2: _encode_cursor output is valid base64 ---
+
+    def test_encode_cursor_is_valid_base64(self) -> None:
+        """_encode_cursor output can be base64-decoded."""
+        now = datetime.now(tz=UTC)
+        msg_id = uuid.uuid4()
+        result = _encode_cursor(now, msg_id)
+        padded = result + "=" * (-len(result) % 4)
+        decoded = base64.urlsafe_b64decode(padded)
+        # Should be valid JSON
+        payload = json.loads(decoded)
+        assert "ts" in payload
+        assert "id" in payload
+
+    # --- U3: _decode_cursor returns a MessageCursor ---
+
+    def test_decode_cursor_returns_message_cursor(self) -> None:
+        """_decode_cursor returns a MessageCursor instance."""
+        now = datetime.now(tz=UTC)
+        msg_id = uuid.uuid4()
+        encoded = _encode_cursor(now, msg_id)
+        result = _decode_cursor(encoded)
+        assert isinstance(result, MessageCursor)
+
+    # --- U4: _decode_cursor roundtrip returns correct ts and id ---
+
+    def test_decode_cursor_roundtrip_correct_values(self) -> None:
+        """decode(encode(ts, id)) returns the original ts and id."""
+        now = datetime.now(tz=UTC)
+        msg_id = uuid.uuid4()
+        encoded = _encode_cursor(now, msg_id)
+        decoded = _decode_cursor(encoded)
+        assert decoded.ts == now
+        assert decoded.id == msg_id
+
+    # --- U5: _decode_cursor with empty string raises 400 ---
+
+    def test_decode_cursor_empty_string_raises_400(self) -> None:
+        """_decode_cursor raises HTTPException(400) for empty string."""
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor("")
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Invalid cursor format"
+
+    # --- U6: _decode_cursor with plain ISO timestamp (old format) raises 400 ---
+
+    def test_decode_cursor_plain_iso_raises_400(self) -> None:
+        """_decode_cursor raises HTTPException(400) for plain ISO timestamp."""
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor("2026-02-23T14:30:00+00:00")
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Invalid cursor format"
+
+    # --- U7: _decode_cursor with valid base64 but missing ts raises 400 ---
+
+    def test_decode_cursor_missing_ts_raises_400(self) -> None:
+        """_decode_cursor raises HTTPException(400) when ts is missing."""
+        from fastapi import HTTPException
+
+        payload = json.dumps({"id": str(uuid.uuid4())}).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor(encoded)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Invalid cursor format"
+
+    # --- Additional: _decode_cursor with garbage bytes raises 400 ---
+
+    def test_decode_cursor_garbage_raises_400(self) -> None:
+        """_decode_cursor raises HTTPException(400) for random garbage."""
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor("abcxyz123456")
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Invalid cursor format"
+
+    # --- S4: Roundtrip test ---
+
+    def test_cursor_roundtrip(self) -> None:
+        """Encode then decode roundtrip preserves values."""
+        ts = datetime(2026, 2, 23, 14, 30, 0, tzinfo=UTC)
+        msg_id = uuid.UUID("550e8400-e29b-41d4-a716-446655440088")
+        encoded = _encode_cursor(ts, msg_id)
+        decoded = _decode_cursor(encoded)
+        assert decoded.ts == ts
+        assert decoded.id == msg_id
+
+    # --- S5: _decode_cursor raises HTTPException(400) for garbage ---
+
+    def test_decode_raises_for_garbage(self) -> None:
+        """_decode_cursor raises 400 for non-decodable input."""
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor("!!!totally-invalid!!!")
+        assert exc_info.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Same-timestamp tiebreaker tests (S1-S3)
+# ---------------------------------------------------------------------------
+
+
+class TestSameTimestampPagination:
+    """Tests for same-timestamp tiebreaker in composite cursor pagination."""
+
+    # --- S1: Two messages with same created_at but different ids ---
+
+    @pytest.mark.asyncio
+    async def test_same_timestamp_different_ids_paginated_correctly(self) -> None:
+        """Two messages with same created_at are correctly paginated with limit=1."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        now = datetime.now(tz=UTC)
+        # Two messages with SAME created_at, different ids
+        msg1 = _make_fake_message(content="first", offset_minutes=0)
+        msg1.created_at = now
+        msg1.id = uuid.UUID("ffffffff-ffff-ffff-ffff-ffffffffffff")
+
+        msg2 = _make_fake_message(content="second", offset_minutes=0)
+        msg2.created_at = now
+        msg2.id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+
+        call_count = 0
+
+        # First call: returns both messages (limit=1, so 2 = limit+1 returned)
+        async def _mock_execute_page1(stmt: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+            if call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                # msg1 has larger id so comes first in DESC order
+                result.scalars.return_value.all.return_value = [msg1, msg2]
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=_mock_execute_page1)
+
+        # First page
+        response1 = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=1,
+        )
+
+        assert len(response1.items) == 1
+        assert response1.items[0].content == "first"
+        assert response1.has_more is True
+        assert response1.next_cursor is not None
+
+        # Verify cursor encodes the last returned item
+        decoded = _decode_cursor(response1.next_cursor)
+        assert decoded.ts == msg1.created_at
+        assert decoded.id == msg1.id
+
+    # --- S2: next_cursor encodes to valid base64 JSON ---
+
+    @pytest.mark.asyncio
+    async def test_next_cursor_is_valid_base64_json(self) -> None:
+        """next_cursor in get_messages response is valid base64 JSON with ts and id."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        messages = [
+            _make_fake_message(content=f"msg{i}", offset_minutes=i) for i in range(3)
+        ]
+
+        call_count = 0
+
+        async def _mock_execute(stmt: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+            if call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                result.scalars.return_value.all.return_value = messages
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=_mock_execute)
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=2,
+        )
+
+        assert response.next_cursor is not None
+        # Decode and verify structure
+        padded = response.next_cursor + "=" * (-len(response.next_cursor) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(padded))
+        assert "ts" in decoded
+        assert "id" in decoded
+        datetime.fromisoformat(decoded["ts"])
+        uuid.UUID(decoded["id"])
+
+    # --- S3: Service accepts MessageCursor and tuple comparison works ---
+
+    @pytest.mark.asyncio
+    async def test_service_accepts_message_cursor(self) -> None:
+        """Service method accepts MessageCursor and executes query without error."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        call_count = 0
+
+        async def _mock_execute(stmt: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+            if call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                result.scalars.return_value.all.return_value = []
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=_mock_execute)
+
+        cursor = MessageCursor(
+            ts=datetime.now(tz=UTC),
+            id=uuid.uuid4(),
+        )
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=cursor,
+            limit=20,
+        )
+
+        assert response.items == []
+        assert response.has_more is False
+
+
+# ---------------------------------------------------------------------------
+# Pagination edge-case service tests (backend-tester: P01-07)
+# ---------------------------------------------------------------------------
+
+
+class TestPaginationEdgeCases:
+    """Edge-case service tests for cursor-based pagination (P01-07)."""
+
+    # --- Helper for building mock_execute with call_count pattern ---
+
+    @staticmethod
+    def _build_mock_execute(
+        mock_char: MagicMock,
+        mock_conv: MagicMock,
+        messages: list[MagicMock],
+    ):
+        """Return an async side_effect function for mock_db.execute.
+
+        Call 1 -> character lookup, Call 2 -> conversation lookup,
+        Call 3+ -> message query.
+        """
+        call_count = 0
+
+        async def _mock_execute(stmt: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+            if call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                result.scalars.return_value.all.return_value = messages
+            return result
+
+        return _mock_execute
+
+    # --- Exactly N messages where N=limit (has_more boundary) ---
+
+    @pytest.mark.asyncio
+    async def test_exactly_limit_messages_has_more_false(self) -> None:
+        """When DB returns exactly limit rows (not limit+1), has_more is False."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        # Create exactly 5 messages (limit=5 means service queries 6, gets 5 back)
+        messages = [
+            _make_fake_message(content=f"msg{i}", offset_minutes=i)
+            for i in range(5)
+        ]
+
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, messages),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=5,
+        )
+
+        assert len(response.items) == 5
+        assert response.has_more is False
+        assert response.next_cursor is None
+
+    # --- Exactly limit+1 messages (has_more=True, returns limit items) ---
+
+    @pytest.mark.asyncio
+    async def test_limit_plus_one_messages_has_more_true(self) -> None:
+        """When DB returns limit+1 rows, has_more is True and only limit items returned."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        # Create limit+1 = 6 messages for limit=5
+        messages = [
+            _make_fake_message(content=f"msg{i}", offset_minutes=i)
+            for i in range(6)
+        ]
+
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, messages),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=5,
+        )
+
+        assert len(response.items) == 5
+        assert response.has_more is True
+        assert response.next_cursor is not None
+
+    # --- Single message in conversation ---
+
+    @pytest.mark.asyncio
+    async def test_single_message_returns_correctly(self) -> None:
+        """Conversation with exactly one message returns it correctly."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        msg = _make_fake_message(content="only message", offset_minutes=0)
+
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, [msg]),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=20,
+        )
+
+        assert len(response.items) == 1
+        assert response.items[0].content == "only message"
+        assert response.has_more is False
+        assert response.next_cursor is None
+
+    # --- Same-timestamp with 3 messages: multi-page walk ---
+
+    @pytest.mark.asyncio
+    async def test_three_same_timestamp_messages_paginate_correctly(self) -> None:
+        """Three messages with identical created_at paginate without duplicates."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        now = datetime.now(tz=UTC)
+
+        # Three messages at same timestamp, different UUIDs (ordered DESC by id)
+        msg_a = _make_fake_message(content="msg_a")
+        msg_a.created_at = now
+        msg_a.id = uuid.UUID("ffffffff-ffff-ffff-ffff-ffffffffffff")
+
+        msg_b = _make_fake_message(content="msg_b")
+        msg_b.created_at = now
+        msg_b.id = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+
+        msg_c = _make_fake_message(content="msg_c")
+        msg_c.created_at = now
+        msg_c.id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+
+        # Page 1: limit=1, returns [msg_a, msg_b] (limit+1=2)
+        page1_call_count = 0
+
+        async def _mock_execute_page1(stmt: object) -> MagicMock:
+            nonlocal page1_call_count
+            page1_call_count += 1
+            result = MagicMock()
+            if page1_call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif page1_call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                # msg_a has larger id so comes first in DESC order
+                result.scalars.return_value.all.return_value = [msg_a, msg_b]
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=_mock_execute_page1)
+
+        # First page
+        response1 = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=1,
+        )
+
+        assert len(response1.items) == 1
+        assert response1.items[0].content == "msg_a"
+        assert response1.has_more is True
+
+        # Decode cursor and verify it points to msg_a
+        cursor1 = _decode_cursor(response1.next_cursor)
+        assert cursor1.ts == now
+        assert cursor1.id == msg_a.id
+
+        # Page 2: cursor from page1, returns [msg_b, msg_c] (limit+1=2)
+        page2_call_count = 0
+
+        async def _mock_execute_page2(stmt: object) -> MagicMock:
+            nonlocal page2_call_count
+            page2_call_count += 1
+            result = MagicMock()
+            if page2_call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif page2_call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                result.scalars.return_value.all.return_value = [msg_b, msg_c]
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=_mock_execute_page2)
+
+        response2 = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=cursor1,
+            limit=1,
+        )
+
+        assert len(response2.items) == 1
+        assert response2.items[0].content == "msg_b"
+        assert response2.has_more is True
+
+        # Page 3: returns [msg_c] only (no extra row)
+        page3_call_count = 0
+
+        async def _mock_execute_page3(stmt: object) -> MagicMock:
+            nonlocal page3_call_count
+            page3_call_count += 1
+            result = MagicMock()
+            if page3_call_count == 1:
+                result.scalar_one_or_none.return_value = mock_char
+            elif page3_call_count == 2:
+                result.scalar_one_or_none.return_value = mock_conv
+            else:
+                result.scalars.return_value.all.return_value = [msg_c]
+            return result
+
+        cursor2 = _decode_cursor(response2.next_cursor)
+        mock_db.execute = AsyncMock(side_effect=_mock_execute_page3)
+
+        response3 = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=cursor2,
+            limit=1,
+        )
+
+        assert len(response3.items) == 1
+        assert response3.items[0].content == "msg_c"
+        assert response3.has_more is False
+
+        # All three messages appeared exactly once across all pages
+        all_contents = [
+            response1.items[0].content,
+            response2.items[0].content,
+            response3.items[0].content,
+        ]
+        assert sorted(all_contents) == sorted(["msg_a", "msg_b", "msg_c"])
+
+    # --- Cursor with future timestamp returns all messages ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_with_future_timestamp_returns_all_messages(self) -> None:
+        """Cursor with far-future timestamp returns messages older than the cursor."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        now = datetime.now(tz=UTC)
+        messages = [
+            _make_fake_message(content=f"msg{i}", offset_minutes=i)
+            for i in range(3)
+        ]
+
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, messages),
+        )
+
+        future_cursor = MessageCursor(
+            ts=now + timedelta(days=365),
+            id=uuid.UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=future_cursor,
+            limit=20,
+        )
+
+        # All 3 messages are older than the future cursor, so all returned
+        assert len(response.items) == 3
+
+    # --- Cursor pointing past oldest message returns empty ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_past_oldest_message_returns_empty(self) -> None:
+        """Cursor older than all messages returns empty items."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        # No messages match the cursor filter (all messages are newer)
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, []),
+        )
+
+        old_cursor = MessageCursor(
+            ts=datetime(2020, 1, 1, tzinfo=UTC),
+            id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=old_cursor,
+            limit=20,
+        )
+
+        assert response.items == []
+        assert response.has_more is False
+        assert response.next_cursor is None
+
+    # --- Multi-page walk: 3 pages of 3 messages each ---
+
+    @pytest.mark.asyncio
+    async def test_multi_page_walk_three_pages(self) -> None:
+        """Multi-page walk through 9 messages in pages of 3 returns all without duplicates."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        now = datetime.now(tz=UTC)
+        all_messages = []
+        for i in range(9):
+            msg = _make_fake_message(content=f"msg{i}", offset_minutes=i)
+            msg.created_at = now - timedelta(minutes=i)
+            msg.id = uuid.UUID(f"00000000-0000-0000-0000-{i:012d}")
+            all_messages.append(msg)
+
+        all_collected_ids: set[str] = set()
+        cursor: MessageCursor | None = None
+
+        for page_num in range(3):
+            page_call_count = 0
+            start = page_num * 3
+            # Simulate DB returning limit+1=4 rows for first 2 pages, 3 for last
+            if page_num < 2:
+                page_msgs = all_messages[start : start + 4]
+            else:
+                page_msgs = all_messages[start : start + 3]
+
+            async def _mock_execute(
+                stmt: object,
+                _msgs: list[MagicMock] = page_msgs,
+            ) -> MagicMock:
+                nonlocal page_call_count
+                page_call_count += 1
+                result = MagicMock()
+                if page_call_count == 1:
+                    result.scalar_one_or_none.return_value = mock_char
+                elif page_call_count == 2:
+                    result.scalar_one_or_none.return_value = mock_conv
+                else:
+                    result.scalars.return_value.all.return_value = _msgs
+                return result
+
+            mock_db.execute = AsyncMock(side_effect=_mock_execute)
+
+            response = await service.get_messages(
+                character_id=FAKE_CHARACTER_ID,
+                user_id=FAKE_USER_ID,
+                cursor=cursor,
+                limit=3,
+            )
+
+            page_ids = {item.id for item in response.items}
+            # No duplicates between this page and previously collected
+            assert page_ids.isdisjoint(all_collected_ids), (
+                f"Duplicate IDs found on page {page_num + 1}"
+            )
+            all_collected_ids.update(page_ids)
+
+            if response.next_cursor is not None:
+                cursor = _decode_cursor(response.next_cursor)
+            else:
+                cursor = None
+
+        # All 9 messages collected
+        assert len(all_collected_ids) == 9
+
+    # --- next_cursor is None when has_more is False ---
+
+    @pytest.mark.asyncio
+    async def test_next_cursor_none_when_has_more_false(self) -> None:
+        """next_cursor is always None when has_more is False."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        # 2 messages with limit=5 -> no overflow -> has_more=False
+        messages = [
+            _make_fake_message(content=f"msg{i}", offset_minutes=i)
+            for i in range(2)
+        ]
+
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, messages),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=5,
+        )
+
+        assert response.has_more is False
+        assert response.next_cursor is None
+
+    # --- Items have correct MessageItem fields ---
+
+    @pytest.mark.asyncio
+    async def test_items_have_correct_fields(self) -> None:
+        """Each item in response has all required MessageItem fields."""
+        mock_db = AsyncMock()
+        service = ChatService(mock_db)
+
+        mock_char = _make_fake_character()
+        mock_conv = _make_fake_conversation()
+
+        msg = _make_fake_message(content="Test content", offset_minutes=0)
+        msg.media_url = "https://example.com/image.jpg"
+        msg.metadata_ = {"key": "value"}
+
+        mock_db.execute = AsyncMock(
+            side_effect=self._build_mock_execute(mock_char, mock_conv, [msg]),
+        )
+
+        response = await service.get_messages(
+            character_id=FAKE_CHARACTER_ID,
+            user_id=FAKE_USER_ID,
+            cursor=None,
+            limit=20,
+        )
+
+        assert len(response.items) == 1
+        item = response.items[0]
+        assert item.id == str(msg.id)
+        assert item.role == msg.role
+        assert item.content == msg.content
+        assert item.media_url == msg.media_url
+        assert item.metadata == msg.metadata_
+        assert item.created_at == msg.created_at
+
+
+# ---------------------------------------------------------------------------
+# Cursor helper edge-case tests (backend-tester: P01-07)
+# ---------------------------------------------------------------------------
+
+
+class TestCursorHelpersEdgeCases:
+    """Additional edge-case tests for cursor encode/decode helpers."""
+
+    # --- Encode with timezone-aware datetime ---
+
+    def test_encode_with_utc_timezone(self) -> None:
+        """_encode_cursor works correctly with UTC timezone-aware datetime."""
+        ts = datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC)
+        msg_id = uuid.uuid4()
+        encoded = _encode_cursor(ts, msg_id)
+        decoded = _decode_cursor(encoded)
+        assert decoded.ts == ts
+        assert decoded.id == msg_id
+
+    # --- Roundtrip with microseconds preserved ---
+
+    def test_roundtrip_preserves_microseconds(self) -> None:
+        """Cursor roundtrip preserves microsecond precision in timestamp."""
+        ts = datetime(2026, 2, 23, 14, 30, 0, 123456, tzinfo=UTC)
+        msg_id = uuid.uuid4()
+        encoded = _encode_cursor(ts, msg_id)
+        decoded = _decode_cursor(encoded)
+        assert decoded.ts == ts
+        assert decoded.ts.microsecond == 123456
+
+    # --- Encode with uuid.UUID edge values ---
+
+    def test_encode_with_nil_uuid(self) -> None:
+        """_encode_cursor works with nil UUID (all zeros)."""
+        ts = datetime.now(tz=UTC)
+        nil_uuid = uuid.UUID("00000000-0000-0000-0000-000000000000")
+        encoded = _encode_cursor(ts, nil_uuid)
+        decoded = _decode_cursor(encoded)
+        assert decoded.id == nil_uuid
+
+    def test_encode_with_max_uuid(self) -> None:
+        """_encode_cursor works with max UUID (all f's)."""
+        ts = datetime.now(tz=UTC)
+        max_uuid = uuid.UUID("ffffffff-ffff-ffff-ffff-ffffffffffff")
+        encoded = _encode_cursor(ts, max_uuid)
+        decoded = _decode_cursor(encoded)
+        assert decoded.id == max_uuid
+
+    # --- MessageCursor is frozen (immutable) ---
+
+    def test_message_cursor_is_frozen(self) -> None:
+        """MessageCursor dataclass is frozen (immutable)."""
+        from dataclasses import FrozenInstanceError
+
+        cursor = MessageCursor(
+            ts=datetime.now(tz=UTC),
+            id=uuid.uuid4(),
+        )
+        with pytest.raises(FrozenInstanceError):
+            cursor.ts = datetime.now(tz=UTC)  # type: ignore[misc]
+
+    def test_message_cursor_is_frozen_id(self) -> None:
+        """MessageCursor id field is also frozen."""
+        from dataclasses import FrozenInstanceError
+
+        cursor = MessageCursor(
+            ts=datetime.now(tz=UTC),
+            id=uuid.uuid4(),
+        )
+        with pytest.raises(FrozenInstanceError):
+            cursor.id = uuid.uuid4()  # type: ignore[misc]
+
+    # --- Decode with valid base64 that decodes to a JSON string (not object) ---
+
+    def test_decode_json_string_returns_400(self) -> None:
+        """_decode_cursor raises 400 for base64 JSON string value."""
+        from fastapi import HTTPException
+
+        payload = json.dumps("just a string").encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor(encoded)
+        assert exc_info.value.status_code == 400
+
+    # --- Decode with valid base64 JSON but ts is empty string ---
+
+    def test_decode_ts_empty_string_returns_400(self) -> None:
+        """_decode_cursor raises 400 when ts is an empty string."""
+        from fastapi import HTTPException
+
+        payload = json.dumps({"ts": "", "id": str(uuid.uuid4())}).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor(encoded)
+        assert exc_info.value.status_code == 400
+
+    # --- Decode with valid base64 JSON but id is empty string ---
+
+    def test_decode_id_empty_string_returns_400(self) -> None:
+        """_decode_cursor raises 400 when id is an empty string."""
+        from fastapi import HTTPException
+
+        payload = json.dumps({
+            "ts": "2026-02-23T14:30:00+00:00",
+            "id": "",
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        with pytest.raises(HTTPException) as exc_info:
+            _decode_cursor(encoded)
+        assert exc_info.value.status_code == 400
+
+    # --- Multiple roundtrips produce consistent results ---
+
+    def test_multiple_roundtrips_consistent(self) -> None:
+        """Encoding the same cursor multiple times produces the same string."""
+        ts = datetime(2026, 2, 23, 14, 30, 0, tzinfo=UTC)
+        msg_id = uuid.UUID("550e8400-e29b-41d4-a716-446655440088")
+
+        encoded1 = _encode_cursor(ts, msg_id)
+        encoded2 = _encode_cursor(ts, msg_id)
+        assert encoded1 == encoded2
+
+    # --- Decode with base64 JSON containing timezone offsets ---
+
+    def test_decode_ts_with_positive_timezone_offset(self) -> None:
+        """_decode_cursor handles positive timezone offset in ts."""
+        payload = json.dumps({
+            "ts": "2026-02-23T17:30:00+03:00",
+            "id": str(uuid.uuid4()),
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        result = _decode_cursor(encoded)
+        assert result.ts.utcoffset().total_seconds() == 10800  # +03:00
+
+    # --- Decode with negative timezone offset ---
+
+    def test_decode_ts_with_negative_timezone_offset(self) -> None:
+        """_decode_cursor handles negative timezone offset in ts."""
+        msg_id = uuid.uuid4()
+        payload = json.dumps({
+            "ts": "2026-02-23T09:30:00-05:00",
+            "id": str(msg_id),
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        result = _decode_cursor(encoded)
+        assert result.ts.utcoffset().total_seconds() == -18000  # -05:00
+        assert result.id == msg_id

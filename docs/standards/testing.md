@@ -720,19 +720,41 @@ class ChatViewModelTest {
 backend/
   tests/
     conftest.py                   # shared fixtures
-    routes/
-      test_messages.py
-      test_characters.py
-      test_auth.py
-    services/
-      test_message_service.py
-      test_memory_service.py
-      test_llm_service.py
-      test_voice_service.py
-    utils/
-      test_cursor.py
+    infra/                        # infrastructure, config, models
+      test_app.py
+      test_config.py
+      test_db_session.py
+      test_docker.py
+      test_health.py
+      test_logging.py
+      test_migration.py
+      test_dependencies.py
+      test_models.py
+    auth/                         # cognito, auth dependency
       test_cognito.py
-    integration/
+      test_dependency.py
+    routes/                       # API endpoint tests
+      test_auth.py
+      test_characters.py
+      test_chat.py
+      test_memories.py
+      test_onboarding.py
+      test_media.py
+    services/                     # service layer tests
+      test_auth.py
+      test_characters.py
+      test_chat.py
+      test_memories.py
+      test_onboarding.py
+      test_media.py
+    schemas/                      # schema validation tests
+      test_auth.py
+      test_characters.py
+      test_chat.py
+      test_memories.py
+      test_onboarding.py
+      test_media.py
+    integration/                  # multi-layer integration tests
       test_send_message_flow.py   # service + DB, no mocks
 ```
 
@@ -784,7 +806,7 @@ app/
 pip install -e ".[test]"
 
 # Run unit tests
-pytest tests/routes/ tests/services/ tests/utils/ -v
+pytest tests/routes/ tests/services/ tests/schemas/ tests/auth/ tests/infra/ -v
 
 # Run with coverage
 pytest --cov=app --cov-report=xml --cov-fail-under=80

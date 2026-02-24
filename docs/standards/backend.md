@@ -72,8 +72,11 @@ backend/
       migrations/            # Alembic env + versions
   tests/
     conftest.py
-    routes/
-    services/
+    infra/                   # config, models, docker, health
+    auth/                    # cognito, auth dependency
+    routes/                  # API endpoint tests
+    services/                # service layer tests
+    schemas/                 # schema validation tests
   pyproject.toml
   alembic.ini
 ```

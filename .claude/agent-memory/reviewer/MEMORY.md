@@ -51,8 +51,22 @@
 - Backend-tester created SEPARATE `_extended.py` files (consistent with memory-endpoints pattern)
 - 131 total tests at 100% line + branch coverage
 
+## Media Upload Review Notes
+- Single endpoint: POST /api/v1/media/upload-url (no DB interaction)
+- Module-level boto3 S3 client (`_s3_client`) reused across requests (unlike Mem0 which is per-call)
+- `generate_presigned_url` wrapped in `asyncio.to_thread()` for safety (even though it's local HMAC signing)
+- Presigned URL NOT logged (security: contains AWS credentials in query params) -- only user_id and s3_key logged
+- `_sanitize_filename()` is a module-level function (not a method), tested with 27 edge cases
+- Pydantic validator rejects path traversal (`..`, `/`, `\`, null bytes) at input level; service sanitizes further
+- `ALLOWED_CONTENT_TYPES` uses `frozenset` for immutability
+- `except (ClientError, Exception)` catches both specific and generic boto3 errors
+- `raise HTTPException(...) from None` suppresses exception chaining in 503 response
+- Backend-tester created SEPARATE `_extended.py` file (consistent pattern)
+- 137 total tests at 100% line + branch coverage
+
 ## Completed Reviews
 - P01-05 character-crud (backend layer): APPROVED 2026-02-23, 0 issues found
 - P01-06 chat-streaming (backend layer): APPROVED 2026-02-24, 0 issues found, 130 tests at 100% coverage
 - P01-08 memory-endpoints (backend layer): APPROVED 2026-02-24, 0 issues found, 110 tests at 100% coverage
 - P01-09 onboarding-endpoint (backend layer): APPROVED 2026-02-24, 0 issues found, 131 tests at 100% coverage
+- P01-10 media-upload (backend layer): APPROVED 2026-02-24, 0 issues found, 137 tests at 100% coverage

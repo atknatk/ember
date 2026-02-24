@@ -118,8 +118,32 @@
 - `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py`.
 - `backend/app/main.py` registers health, auth, and characters routers.
 
+## Key Decisions Log (P01-08)
+
+- P01-08: No pagination on memory list endpoints -- Mem0 get_all() has no cursor support, memory counts are low.
+- P01-08: Idempotent single-memory delete -- Mem0 "not found" treated as success (204), not 404.
+- P01-08: Two routers in one module (global_router + character_router) -- different prefixes, same domain.
+- P01-08: memory_id is str not uuid.UUID -- external service IDs should not be type-enforced.
+- P01-08: Character ownership checked on all character-scoped ops -- defense-in-depth for delete.
+- P01-08: 503 for all Mem0 failures -- per docs/standards/common.md Section 7.
+- P01-08: Field named `memory` (not `content`) -- matches Mem0 SDK response format.
+- P01-08: No new config values needed -- mem0_api_key already exists.
+- P01-08: No DB writes -- pure Mem0 SDK operations with character lookup only.
+
+## Implementation State After P01-07
+
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py`.
+- `backend/app/services/chat_service.py` has MessageCursor dataclass, _encode_cursor, _decode_cursor, tuple_ pagination.
+- `backend/app/main.py` registers health, auth, characters, chat routers (4 routers).
+
 ## Spec Writing Patterns (P01-07 lesson)
 
 - When a feature mostly enhances an existing implementation, clearly document "What Already Exists" vs "What Changes" in a comparison table.
 - For MODIFY-only features with no new files, the file manifest is small. Still list every modified file explicitly.
 - When docs/standards/common.md and the issue description conflict on specifics (e.g., default limit 30 vs 20), note the discrepancy and state which takes precedence and why.
+
+## Spec Writing Patterns (P01-08 lesson)
+
+- For features that are pure external-API wrappers (Mem0, etc.), the "Data Models" section is "no new tables, no new columns" but should list which existing columns are READ.
+- When an external SDK returns data in its own format, document the expected response shape and how each field maps to the Pydantic schema.
+- For features with multiple routers in one module, document the registration pattern in main.py explicitly.

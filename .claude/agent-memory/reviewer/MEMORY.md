@@ -32,6 +32,15 @@
 - Message model uses `metadata_` (Python name) mapped to `metadata` (column name) via `mapped_column("metadata", JSONB)`
 - `asyncio.gather(..., return_exceptions=True)` for Mem0 resilience
 
+## Memory Endpoints Review Notes
+- MemoryService creates fresh MemoryClient per call (no shared state) -- good pattern
+- Two routers in one module: `global_router` (prefix `/api/v1`) and `character_router` (prefix `/api/v1/characters`)
+- `memory_id` is `str`, not `uuid.UUID` (Mem0 IDs are opaque strings)
+- Idempotent delete: checks `exc_str.lower()` for "not found" or "404"
+- Backend-tester created SEPARATE `_extended.py` files this time (not appended to originals)
+- 110 total tests at 100% coverage
+
 ## Completed Reviews
 - P01-05 character-crud (backend layer): APPROVED 2026-02-23, 0 issues found
 - P01-06 chat-streaming (backend layer): APPROVED 2026-02-24, 0 issues found, 130 tests at 100% coverage
+- P01-08 memory-endpoints (backend layer): APPROVED 2026-02-24, 0 issues found, 110 tests at 100% coverage

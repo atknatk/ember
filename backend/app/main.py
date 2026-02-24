@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.logging import setup_logging
 from app.db.session import engine
-from app.routes import auth, characters, chat, health
+from app.routes import auth, characters, chat, health, memories
 
 logger = logging.getLogger("ember")
 
@@ -55,6 +55,8 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(characters.router, prefix="/api/v1/characters", tags=["characters"])
     app.include_router(chat.router, prefix="/api/v1/characters", tags=["chat"])
+    app.include_router(memories.global_router, prefix="/api/v1", tags=["memories"])
+    app.include_router(memories.character_router, prefix="/api/v1/characters", tags=["memories"])
 
     # Global exception handler
     @app.exception_handler(Exception)

@@ -76,11 +76,11 @@ App Store / Play Store "En İyi Değer" rozeti için önerilen oran.
 
 | Servis | Kullanım | Maliyet/ay |
 |--------|---------|-----------|
-| Claude Sonnet (chat + vision) | ~600 mesaj × avg 1.5k token | ~$4.50 |
+| Claude Sonnet (chat + vision) | ~600 mesaj × avg 3k token (system prompt + context + memories) | ~$7.20 |
 | Claude Haiku (intent + bildirim) | ~300 işlem | ~$0.15 |
 | ElevenLabs TTS | ~4.5k karakter/gün → 135k/ay | ~$0.29 (Creator plan payı) |
 | OpenAI Whisper STT | ~90 dk/ay | ~$0.54 |
-| **AI Toplam** | | **~$5.48/ay** |
+| **AI Toplam** | | **~$8.18/ay** |
 
 ### Altyapı Maliyeti (AWS payı)
 
@@ -90,33 +90,32 @@ App Store / Play Store "En İyi Değer" rozeti için önerilen oran.
 
 | Maliyet Kalemi | USD/ay |
 |---------------|--------|
-| AI API | $5.48 |
+| AI API | $8.18 |
 | AWS altyapı payı | $0.46 |
 | Mem0.ai (cloud) | ~$0.10 |
 | Firebase FCM | $0.00 |
-| **Toplam COGS** | **~$6.04** |
+| **Toplam COGS** | **~$8.74** |
 
 ### Brüt Marj
 
 | Gelir | COGS | Brüt Marj |
 |-------|------|-----------|
-| $9.99 | $6.04 | **$3.95 (%40)** |
+| $9.99 | $8.74 | **$1.25 (%13)** |
 
-%40 brüt marj başlangıç için makul. Kullanıcı sayısı arttıkça (AWS ölçeği, Mem0 hacim indirimi)
-marj %55–65'e çıkabilir.
+> **Uyarı:** %13 brüt marj sürdürülebilir değil. Aşağıdaki risk analizi ve fiyatlandırma önerilerine bakınız.
 
 ---
 
 ## Ölçek Senaryosu
 
-| Kullanıcı | Aylık Gelir | Aylık AWS | AI API (toplam) | Net |
-|-----------|------------|-----------|-----------------|-----|
-| 100 | $999 | $46 | $548 | ~$395 |
-| 500 | $4,995 | $120 | $2,740 | ~$2,115 |
-| 1,000 | $9,990 | $200 | $5,480 | ~$4,210 |
-| 5,000 | $49,950 | $600 | $27,400 | ~$21,850 |
+| Kullanıcı | Premium (%12 conversion) | Aylık Gelir | Aylık AWS | AI API | Net |
+|-----------|------------------------|------------|-----------|--------|-----|
+| 100 | 12 | $102 | $46 | $105 | **-$49** |
+| 500 | 60 | $510 | $120 | $524 | **-$134** |
+| 1,000 | 120 | $1,019 | $200 | $1,049 | **-$230** |
+| 5,000 | 600 | $5,094 | $600 | $5,244 | **-$750** |
 
-*Tahminler %60 premium conversion ve orta aktif kullanım varsayar.*
+*Düzeltme: Önceki tahminler %60 conversion varsayıyordu. Sektör ortalaması %5-15. Tabloda %12 kullanıldı.*
 
 ---
 
@@ -173,14 +172,12 @@ Her ek karakter kullanıcı başına maliyet artışı yaratır:
 
 | Senaryo | COGS Etkisi |
 |---------|------------|
-| 1 karakter (General Friend) | Baz maliyet ~$6.04/ay |
-| +1 English Teacher (aktif) | +~$2.50/ay (chat + memory) |
-| +1 Therapist (aktif) | +~$2.50/ay |
-| 3 aktif karakter | ~$11/ay COGS |
+| 1 karakter (General Friend) | Baz maliyet ~$8.74/ay |
+| +1 English Teacher (aktif) | +~$3.50/ay (chat + memory) |
+| +1 Therapist (aktif) | +~$3.50/ay |
+| 3 aktif karakter | **~$15.74/ay COGS** |
 
-Premium fiyatı ($9.99) tek aktif karakter için makul.
-Çok karakterli yoğun kullanıcılar için marj düşer ama retention artar.
-Dengeler: premium tier fiyatı ileride $12.99'a çıkarılabilir (değer net ise).
+> **Kritik:** 3 aktif karakter kullanan premium kullanıcı $15.74 COGS üretir, $8.49 net gelire karşı. Bu kullanıcılar zararda.
 
 ---
 
@@ -197,3 +194,38 @@ Komisyon sonrası gerçek gelir:
 | Android | $9.99 | %15 | $8.49 |
 
 *Küçük geliştirici (yıllık <$1M) %15 komisyon programı varsayılıyor.*
+
+---
+
+## Risk Analizi ve Fiyatlandırma Önerileri
+
+### Tespit Edilen Riskler
+
+1. **COGS > Gelir riski:** Mevcut $9.99 fiyatla, tek karakter bile %13 marj bırakır. Çoklu karakter kullanan kullanıcılar net zararda.
+2. **Conversion rate:** Sektör ortalaması %5-15 (Replika ~%8, Character.AI <%5, ChatGPT Plus ~%6). %60 varsayımı 4-12x yüksek.
+3. **Sınırsız karakter:** Unlimited karakter $9.99'da finansal olarak sürdürülemez.
+
+### Önerilen Aksiyonlar
+
+| Aksiyon | Açıklama |
+|---------|----------|
+| **Fiyat artışı** | Premium: $9.99 → $14.99/ay ($11.99 yıllık planla) |
+| **Karakter limiti** | Premium'da 3 aktif karakter, Premium+ ($19.99) unlimited |
+| **Prompt caching agresif kullan** | Anthropic prompt caching ile %30-50 token tasarrufu → COGS $5-6'ya düşer |
+| **Claude Haiku for non-critical** | Fitness Coach, Career Coach → Haiku ile çalıştır (Sonnet'in 1/10 maliyeti) |
+| **Usage-based pricing** | Ağır kullanıcılar için mesaj paketi: 1000 mesaj/ay base + $0.01/extra mesaj |
+| **Mem0 self-host** | Phase 12'de Mem0 Cloud → self-hosted geçiş, $0.10/user/ay tasarruf |
+
+### Revize Break-Even Analizi
+
+**Senaryo A — $14.99 fiyat, prompt caching:**
+- COGS: ~$5.50/user/ay (prompt caching ile)
+- Net gelir: $12.74 (iOS/Android %15 komisyon sonrası)
+- Brüt marj: **$7.24 (%57)** — sürdürülebilir
+
+**Senaryo B — $9.99 fiyat, Haiku for secondary characters:**
+- COGS: ~$4.80/user/ay (secondary chars Haiku)
+- Net gelir: $8.49
+- Brüt marj: **$3.69 (%43)** — marjinal ama kabul edilebilir
+
+**Önerilen strateji:** Senaryo A (fiyat artışı + prompt caching). Değer kanıtlandıktan sonra kullanıcılar $14.99'u ödemeye hazır.

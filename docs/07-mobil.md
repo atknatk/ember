@@ -5,7 +5,7 @@
 - **iOS:** Swift + SwiftUI
 - **Android:** Kotlin + Jetpack Compose
 
-iOS önce geliştirilir (Faz 4), Android sonra (Faz 5).
+iOS önce geliştirilir (Faz 3), Android sonra (Faz 4).
 
 ---
 

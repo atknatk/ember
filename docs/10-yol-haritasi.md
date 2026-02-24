@@ -7,27 +7,50 @@ Acelemiz yok. Her faz tam bitmeden bir sonrakine geçilmez.
 
 ## Faz 1 — Backend Temeli
 
+> **Durum: TAMAMLANDI** — Phase 1 backend kodu (P01-01 → P01-10) develop branch'te merge edildi. Altyapı deployment (ECS, CloudFront) henüz yapılmadı.
+
 **Hedef:** Çalışan bir API ile basit chat, memory öğreniyor.
 
 **Başarı kriteri:** Postman/curl ile chat çalışıyor, memory öğreniyor, AWS deployment ayakta.
 
 ### Yapılacaklar
 
-- [ ] AWS RDS PostgreSQL instance oluştur + Alembic migration çalıştır
-- [ ] FastAPI proje yapısını kur (app/, routes/, services/, middleware/)
-- [ ] AWS Cognito User Pool kur + JWT doğrulama middleware
-- [ ] Profil oluşturma — Mem0'da kullanıcı kaydı (`mem0_user_id` ata)
-- [ ] Claude streaming chat endpoint (SSE)
-- [ ] Mem0 search + add entegrasyonu (konuşma öncesi ara, sonra ekle)
-- [ ] Konuşma listesi endpoint'i
-- [ ] Mesaj geçmişi endpoint'i (sayfalı)
-- [ ] Memories listele / sil endpoint'leri
-- [ ] AWS S3 presigned URL endpoint'i (fotoğraf yükleme)
-- [ ] `user_activity` güncelleme middleware'i
-- [ ] Dockerfile yazımı
-- [ ] ECR'e push + ECS Fargate deploy
-- [ ] CloudFront + ALB konfigürasyonu
-- [ ] GitHub Actions CI/CD pipeline
+- [x] AWS RDS PostgreSQL instance oluştur + Alembic migration çalıştır
+- [x] FastAPI proje yapısını kur (app/, routes/, services/, middleware/)
+- [x] AWS Cognito User Pool kur + JWT doğrulama middleware
+- [x] Profil oluşturma — Mem0'da kullanıcı kaydı (`mem0_user_id` ata)
+- [x] Claude streaming chat endpoint (SSE)
+- [x] Mem0 search + add entegrasyonu (konuşma öncesi ara, sonra ekle)
+- [x] Konuşma listesi endpoint'i
+- [x] Mesaj geçmişi endpoint'i (sayfalı)
+- [x] Memories listele / sil endpoint'leri
+- [x] AWS S3 presigned URL endpoint'i (fotoğraf yükleme)
+- [ ] `user_activity` güncelleme middleware'i (moved to P02-01)
+- [x] Dockerfile yazımı
+- [ ] ECR'e push + ECS Fargate deploy (infra, not tracked)
+- [ ] CloudFront + ALB konfigürasyonu (infra, not tracked)
+- [ ] GitHub Actions CI/CD pipeline (exists but disabled)
+
+---
+
+## Faz 1.5 — Backend Hardening
+
+> Yapılabilirlik analizinden çıkan kritik backend eksikleri.
+
+**Hedef:** Production-ready backend — observability, rate limiting, GDPR, Mem0 fallback.
+
+**Başarı kriteri:** Rate limiting aktif, profil CRUD çalışıyor, Mem0 kapalıyken chat devam ediyor, structured logging aktif.
+
+### Yapılacaklar
+
+- [ ] Rate limiting middleware (20 req/min per user) — P1.5-01
+- [ ] Profil CRUD endpoint'leri (GET/PUT /profile + DELETE /profile/account GDPR) — P1.5-02
+- [ ] Observability stack (structlog, request ID, Sentry) — P1.5-03
+- [ ] Mem0 circuit breaker + graceful degradation — P1.5-04
+- [ ] LLM provider abstraction (ADR-006 implementasyonu) — P1.5-05
+- [ ] OpenAPI specs (shared/api-contracts/) — P1.5-06
+- [ ] Dokümantasyon-kod senkronizasyonu — P1.5-07
+- [ ] Global memory delete endpoint — P1.5-08
 
 ---
 
@@ -285,21 +308,23 @@ Acelemiz yok. Her faz tam bitmeden bir sonrakine geçilmez.
 
 ## Faz 9 — Karakter Sistemi
 
+> **Not:** Character CRUD, 5 şablon, Haiku system_prompt generation ve Mem0 agent_id izolasyonu Phase 1'de (P01-05) implement edildi. Bu fazda sadece UI ve premium gate kalmıştır.
+
 **Hedef:** Kullanıcı birden fazla AI karakteri oluşturabiliyor, her biri izole belleğe sahip.
 
 **Başarı kriteri:** English Teacher karakteri oluşturulabiliyor, sadece dil memory'si birikiyor.
 
 ### Backend
 
-- [ ] `characters` tablosu migrasyonu
-- [ ] `conversations` tablosuna `character_id` eklenmesi
-- [ ] Default General Friend karakteri otomatik oluşturma (register sırasında)
-- [ ] Karakter CRUD endpoint'leri: GET/POST/PUT/DELETE `/characters`
-- [ ] `POST /characters` → şablona göre system_prompt otomatik üretimi
-- [ ] Custom şablon → Claude Haiku ile system_prompt üretimi
-- [ ] Mem0 `agent_id` bazlı memory izolasyonu (bkz. [05-ai-bellek.md](05-ai-bellek.md))
-- [ ] Çift Mem0 araması: global + karakter-özel (async paralel)
-- [ ] Karakter memory endpoint'leri: GET/DELETE `/characters/:id/memories`
+- [x] `characters` tablosu migrasyonu
+- [x] `conversations` tablosuna `character_id` eklenmesi
+- [x] Default General Friend karakteri otomatik oluşturma (register sırasında)
+- [x] Karakter CRUD endpoint'leri: GET/POST/PUT/DELETE `/characters`
+- [x] `POST /characters` → şablona göre system_prompt otomatik üretimi
+- [x] Custom şablon → Claude Haiku ile system_prompt üretimi
+- [x] Mem0 `agent_id` bazlı memory izolasyonu (bkz. [05-ai-bellek.md](05-ai-bellek.md))
+- [x] Çift Mem0 araması: global + karakter-özel (async paralel)
+- [x] Karakter memory endpoint'leri: GET/DELETE `/characters/:id/memories`
 - [ ] Proaktif bildirim sistemi karakter bazında güncelleme
 - [ ] Karakter bazında bildirim tercihleri
 

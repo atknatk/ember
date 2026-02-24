@@ -6,9 +6,18 @@
 
 - Tüm endpoint'ler HTTPS zorunlu
 - AWS Cognito JWT token'ları (RS256) — sunucu tarafında doğrulanır
-- Access token süresi: 7 gün
+- Access token süresi: 1 saat
 - Refresh token süresi: 30 gün
 - Rate limiting: Kullanıcı başına dakikada maksimum 20 istek
+
+### İçerik Moderasyonu
+
+- Kullanıcı mesajları Anthropic content filtering ile kontrol edilir
+- Prompt injection koruması: system prompt manipülasyonu engellenir
+- Therapist karakter için özel hassasiyet: kriz durumunda acil kaynak yönlendirmesi
+- Mesaj uzunluk limiti: max 4000 karakter per message
+- Memory sanitization: Mem0'ya yazılan memory'ler zararlı içerikten temizlenir
+- Detaylı implementasyon: P02-05 (content-moderation) issue'da
 
 ### API Key Güvenliği
 

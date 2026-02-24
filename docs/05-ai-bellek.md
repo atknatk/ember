@@ -227,3 +227,41 @@ Self-hosted Mem0 şunları kullanır:
 - MVP'de self-hosting altyapı yönetimi zaman ister
 - Ürün doğrulandıktan sonra self-hosted geçiş daha anlamlı
 - Geçiş pgvector kullandığı için AWS RDS'e kolayca taşınır (zaten mevcut)
+
+---
+
+## Mem0 Degradation Stratejisi
+
+### Circuit Breaker Pattern
+
+Mem0 Cloud erişilemezken chat fonksiyonu çalışmaya devam etmeli:
+
+1. **Normal mod:** Mem0 search + add her mesajda çalışır
+2. **Degraded mod (circuit open):** 3 ardışık Mem0 hatası → circuit açılır (60s)
+   - Chat memory'siz devam eder (sadece son 20 mesaj context'i)
+   - Mem0 add işlemleri kuyruğa alınır, circuit kapanınca gönderilir
+3. **Half-open mod:** 60s sonra tek deneme, başarılıysa normal moda dön
+
+### Local Memory Cache
+
+Son başarılı Mem0 search sonuçları in-memory cache'te tutulur (TTL 5dk).
+Circuit open durumda cache'ten servis edilir.
+
+### Health Check
+
+`/health` endpoint'i Mem0 API durumunu raporlar:
+
+- `mem0_status: "healthy" | "degraded" | "unavailable"`
+
+Detaylı implementasyon: P1.5-04 (mem0-circuit-breaker) issue'da.
+
+---
+
+## Memory Growth ve Kalite
+
+Premium kullanıcılarda sınırsız memory birikir. Zaman içinde:
+
+- Mem0 search kalitesi büyük corpus'ta düşebilir (daha az ilgili sonuçlar)
+- Mem0'nun dahili deduplication algoritması çelişen memory'leri yönetir
+- Memory sayısı monitoring: per-user memory count takibi (P11-08)
+- Gelecekte: memory pruning stratejisi (eski/düşük relevance memory'leri arşivle)

@@ -252,6 +252,9 @@ Konuşma geçmişi karaktere göre filtrelenmiş gelir.
 ### Therapist Karakteri için Ek Önlemler
 
 - Therapist memory'leri veritabanında şifreli saklanır (AES-256, kullanıcı anahtarı)
+
+> **Not:** Therapist memory şifreleme key management tasarımı henüz tamamlanmamış. Encryption key'in nerede saklanacağı, key rotation, recovery ve password change durumları tasarlanmalı. Bu özellik production'a çıkmadan önce detaylı key management mimarisi gerekli.
+
 - "Therapist memory'lerini tümünü sil" seçeneği Profile ekranında ayrıca görünür
 - Bu memory'ler data export'a dahil edilmeden önce kullanıcıya ayrıca sorulur
 - AI şunu söyler: "Bu konuşmalar sadece seninle aramda kalır."

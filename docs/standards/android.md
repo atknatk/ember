@@ -1,6 +1,6 @@
 # Ember Android Coding Standards
 
-Kotlin 2.0 / Jetpack Compose / Android API 26+
+Kotlin 2.1+ / Jetpack Compose / Android API 26+
 
 This document is the authoritative reference for all Android development on the Ember project.
 Zero-memory sessions must follow every rule here without exception.

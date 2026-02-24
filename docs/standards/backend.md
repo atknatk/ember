@@ -40,7 +40,7 @@ backend/
       __init__.py
       auth.py
       characters.py
-      messages.py
+      chat.py
       memories.py
       voice.py
     services/
@@ -53,7 +53,7 @@ backend/
     models/
       __init__.py
       base.py                # DeclarativeBase, TimestampMixin
-      user.py
+      profile.py
       character.py
       conversation.py
       message.py
@@ -94,7 +94,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import engine
 from app.models.base import Base
-from app.routes import characters, messages, memories, voice
+from app.routes import auth, characters, chat, health, memories, voice
 
 
 @asynccontextmanager
@@ -116,10 +116,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(characters.router, prefix="/characters", tags=["characters"])
-    app.include_router(messages.router, prefix="/characters", tags=["messages"])
-    app.include_router(memories.router, prefix="/memories", tags=["memories"])
-    app.include_router(voice.router, prefix="/voice", tags=["voice"])
+    app.include_router(health.router, prefix="/api/v1", tags=["health"])
+    app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+    app.include_router(characters.router, prefix="/api/v1/characters", tags=["characters"])
+    app.include_router(chat.router, prefix="/api/v1/characters", tags=["messages"])
+    app.include_router(memories.router, prefix="/api/v1", tags=["memories"])
+    app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"])
 
     return app
 
@@ -381,7 +383,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.utils.cognito import verify_token
-from app.models.user import User
+from app.models.profile import Profile
 from sqlalchemy import select
 
 bearer_scheme = HTTPBearer()
@@ -395,10 +397,10 @@ async def get_db():
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> Profile:
     claims = await verify_token(credentials.credentials)
     cognito_sub = claims["sub"]
-    result = await db.execute(select(User).where(User.cognito_sub == cognito_sub))
+    result = await db.execute(select(Profile).where(Profile.id == cognito_sub))
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -408,7 +410,7 @@ async def get_current_user(
 **Rules:**
 - Extract `user_id` from JWT claims — NEVER accept `user_id` in request body.
 - Cache JWKS; do not fetch on every request.
-- All protected routes use `current_user: User = Depends(get_current_user)`.
+- All protected routes use `current_user: Profile = Depends(get_current_user)`.
 
 ---
 
@@ -643,12 +645,15 @@ class MemoryService:
 **Rules:**
 - `agent_id` format is always `{template_id}_{user_id}` — never deviate.
 - Always pass both `user_id` and `agent_id` for per-character isolation.
-- Use `AsyncMemoryClient` — never the sync client in async routes.
+- Prefer `AsyncMemoryClient` if available. The sync `MemoryClient` with `asyncio.to_thread()` is acceptable as fallback.
 - Memory is searched before building the LLM prompt, in parallel with history retrieval.
 
 ---
 
 ## 10. Claude / Multi-Provider LLM
+
+> **Status:** The `LLMProvider` abstraction is defined below but not yet implemented in the codebase.
+> Current code uses `AsyncAnthropic` directly. Implementation planned in P1.5-05.
 
 ```python
 # app/services/llm_service.py

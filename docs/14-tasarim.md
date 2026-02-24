@@ -164,7 +164,7 @@ Metin stream edilirken karakter karakter değil, kelime kelime gösterilir
 │  │ 💬 Pzt · Antrenman  │    │
 │  └─────────────────────┘    │
 │                             │
-│  [+ Yeni Konuşma Başlat]    │  ← Sabit FAB (floating action button)
+│  [+ Yeni Karakter Ekle]      │  ← Karakter oluşturma (FAB)
 └─────────────────────────────┘
 ```
 

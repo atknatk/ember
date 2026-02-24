@@ -1,6 +1,6 @@
 # Ember iOS Coding Standards
 
-Swift 5.10 / SwiftUI / iOS 17+
+Swift 5.9+ / SwiftUI / iOS 17+
 
 This document is the authoritative reference for all iOS development on the Ember project.
 Zero-memory sessions must follow every rule here without exception.

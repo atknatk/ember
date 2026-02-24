@@ -24,7 +24,7 @@
 
 **Key insight**: Ember is NOT session-based like ChatGPT. Each character has ONE
 continuous conversation forever. Mem0 provides long-term memory across time.
-Context window: last 30-50 messages + Mem0 semantic search results.
+Context window: last 20 messages + Mem0 semantic search results (max 10 memories).
 
 ## Full Documentation
 
@@ -111,7 +111,7 @@ All architectural decisions, data models, API contracts, and feature specs live 
    ```
 4. **No hardcoded secrets** — use AWS Secrets Manager / Parameter Store
 5. **JWT extraction** — always get `user_id` from JWT, never from request body
-6. **Rate limiting** — 20 req/min per user (already configured in middleware)
+6. **Rate limiting** — 20 req/min per user (Phase 1.5, see P1.5-01)
 7. **Memory isolation** — `agent_id = f"{template}_{user_id}"` per character
 
 ### iOS
@@ -211,7 +211,7 @@ Issues tracked with **Milestones** (one per phase) and **Labels**.
 Issue map: `scripts/issue-map.json` (feature ID → GitHub issue number)
 
 ### Labels
-- `phase:1` through `phase:12` (purple shades)
+- `phase:1` through `phase:12` + `phase:1.5` (purple shades)
 - `layer:backend`, `layer:ios`, `layer:android`, `layer:mobile`, `layer:fullstack`
 - `type:model`, `type:api`, `type:ui`, `type:service`, `type:infra`, `type:integration`
 
@@ -253,6 +253,6 @@ GitHub Actions in `.github/workflows/`:
 
 ---
 
-**Last Updated**: 2026-02-23
+**Last Updated**: 2026-02-24
 **App Name**: Ember
 **Stack**: Python/FastAPI + iOS Swift/SwiftUI + Android Kotlin/Compose

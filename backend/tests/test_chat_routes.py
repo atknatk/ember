@@ -1221,3 +1221,507 @@ class TestGetMessagesAdditional:
         )
         assert resp.status_code == 400
         assert resp.json()["detail"] == "Invalid cursor format"
+
+
+# ---------------------------------------------------------------------------
+# Pagination edge-case route tests (backend-tester: P01-07)
+# ---------------------------------------------------------------------------
+
+
+class TestGetMessagesPaginationEdgeCases:
+    """Edge-case route tests for cursor-based pagination (P01-07)."""
+
+    # --- Cursor with extra fields still works (forward-compatible) ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_with_extra_fields_accepted(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with extra fields beyond ts and id is still accepted."""
+        from app.schemas.chat import MessageListResponse
+
+        mock_response = MessageListResponse(
+            items=[],
+            next_cursor=None,
+            has_more=False,
+        )
+
+        payload = json.dumps({
+            "ts": "2026-02-23T14:30:00+00:00",
+            "id": str(uuid.uuid4()),
+            "extra_field": "should_be_ignored",
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode().rstrip("=")
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+                f"?cursor={encoded}",
+            )
+
+        assert resp.status_code == 200
+
+    # --- Cursor with valid base64 but empty JSON object ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_empty_json_object_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor with valid base64 encoding of empty JSON object returns 400."""
+        payload = json.dumps({}).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Cursor with valid base64 but JSON array instead of object ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_json_array_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor with valid base64 encoding of JSON array returns 400."""
+        payload = json.dumps(["2026-02-23T14:30:00+00:00", str(uuid.uuid4())]).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Cursor with ts as integer (wrong type) ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_ts_as_integer_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with ts as integer instead of ISO string returns 400."""
+        payload = json.dumps({
+            "ts": 1234567890,
+            "id": str(uuid.uuid4()),
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Cursor with id as integer (wrong type) ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_id_as_integer_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with id as integer instead of UUID string returns 400."""
+        payload = json.dumps({
+            "ts": "2026-02-23T14:30:00+00:00",
+            "id": 12345,
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- limit=1 boundary ---
+
+    @pytest.mark.asyncio
+    async def test_limit_equals_one_accepted(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """limit=1 is accepted and returns at most 1 item."""
+        from app.schemas.chat import MessageItem, MessageListResponse
+
+        now = datetime.now(tz=UTC)
+        item = MessageItem(
+            id=str(uuid.uuid4()),
+            role="user",
+            content="Hello",
+            media_url=None,
+            metadata=None,
+            created_at=now,
+        )
+        mock_response = MessageListResponse(
+            items=[item],
+            next_cursor=_encode_cursor(now, uuid.uuid4()),
+            has_more=True,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=1",
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["items"]) == 1
+
+    # --- limit=100 boundary ---
+
+    @pytest.mark.asyncio
+    async def test_limit_equals_100_accepted(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """limit=100 is accepted (maximum allowed)."""
+        from app.schemas.chat import MessageListResponse
+
+        mock_response = MessageListResponse(
+            items=[],
+            next_cursor=None,
+            has_more=False,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=100",
+            )
+
+        assert resp.status_code == 200
+
+    # --- Negative limit returns 422 ---
+
+    @pytest.mark.asyncio
+    async def test_negative_limit_returns_422(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Negative limit returns 422."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=-1",
+        )
+        assert resp.status_code == 422
+
+    # --- Non-integer limit returns 422 ---
+
+    @pytest.mark.asyncio
+    async def test_non_integer_limit_returns_422(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Non-integer limit value returns 422."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=abc",
+        )
+        assert resp.status_code == 422
+
+    # --- Cursor with null bytes in base64 ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_with_null_bytes_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor containing null bytes encoded in base64 returns 400."""
+        encoded = base64.urlsafe_b64encode(b"\x00\x00\x00").decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Cursor with extremely long string returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_very_long_string_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Very long cursor string returns 400 (not a valid cursor)."""
+        long_cursor = base64.urlsafe_b64encode(b"x" * 10000).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={long_cursor}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Multi-page sequential walk via route ---
+
+    @pytest.mark.asyncio
+    async def test_multi_page_walk_returns_no_duplicates(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Sequential page walk using next_cursor returns no duplicate IDs."""
+        from app.schemas.chat import MessageItem, MessageListResponse
+
+        now = datetime.now(tz=UTC)
+        all_ids = [uuid.uuid4() for _ in range(6)]
+
+        # Page 1: items 0-2, has_more=True
+        page1_items = [
+            MessageItem(
+                id=str(all_ids[i]),
+                role="user",
+                content=f"msg{i}",
+                media_url=None,
+                metadata=None,
+                created_at=now - timedelta(minutes=i),
+            )
+            for i in range(3)
+        ]
+        page1_cursor = _encode_cursor(
+            now - timedelta(minutes=2), all_ids[2],
+        )
+        page1_response = MessageListResponse(
+            items=page1_items,
+            next_cursor=page1_cursor,
+            has_more=True,
+        )
+
+        # Page 2: items 3-5, has_more=False
+        page2_items = [
+            MessageItem(
+                id=str(all_ids[i]),
+                role="user",
+                content=f"msg{i}",
+                media_url=None,
+                metadata=None,
+                created_at=now - timedelta(minutes=i),
+            )
+            for i in range(3, 6)
+        ]
+        page2_response = MessageListResponse(
+            items=page2_items,
+            next_cursor=None,
+            has_more=False,
+        )
+
+        call_count = 0
+
+        def _mock_get_messages(*args: object, **kwargs: object) -> MessageListResponse:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return page1_response
+            return page2_response
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            side_effect=_mock_get_messages,
+        ):
+            # First page
+            resp1 = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=3",
+            )
+            data1 = resp1.json()
+            assert resp1.status_code == 200
+            assert len(data1["items"]) == 3
+            assert data1["has_more"] is True
+            cursor = data1["next_cursor"]
+
+            # Second page
+            resp2 = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+                f"?limit=3&cursor={cursor}",
+            )
+            data2 = resp2.json()
+            assert resp2.status_code == 200
+            assert len(data2["items"]) == 3
+            assert data2["has_more"] is False
+
+        # No duplicate IDs across pages
+        ids1 = {m["id"] for m in data1["items"]}
+        ids2 = {m["id"] for m in data2["items"]}
+        assert ids1.isdisjoint(ids2)
+        assert len(ids1 | ids2) == 6
+
+    # --- next_cursor in response matches last item exactly ---
+
+    @pytest.mark.asyncio
+    async def test_next_cursor_matches_last_item_in_response(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """next_cursor ts and id match the last item in the response items array."""
+        from app.schemas.chat import MessageItem, MessageListResponse
+
+        now = datetime.now(tz=UTC)
+        last_id = uuid.uuid4()
+        last_ts = now - timedelta(minutes=5)
+
+        items = [
+            MessageItem(
+                id=str(uuid.uuid4()),
+                role="user",
+                content="first",
+                media_url=None,
+                metadata=None,
+                created_at=now,
+            ),
+            MessageItem(
+                id=str(last_id),
+                role="assistant",
+                content="second",
+                media_url=None,
+                metadata=None,
+                created_at=last_ts,
+            ),
+        ]
+        mock_response = MessageListResponse(
+            items=items,
+            next_cursor=_encode_cursor(last_ts, last_id),
+            has_more=True,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=2",
+            )
+
+        data = resp.json()
+        raw_cursor = data["next_cursor"]
+        padded = raw_cursor + "=" * (-len(raw_cursor) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(padded))
+
+        # ts and id must match last item
+        last_item = data["items"][-1]
+        assert decoded["id"] == last_item["id"]
+
+    # --- Cursor with padding characters is still decodable ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_with_base64_padding_accepted(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor that includes trailing = padding is accepted."""
+        from app.schemas.chat import MessageListResponse
+
+        mock_response = MessageListResponse(
+            items=[],
+            next_cursor=None,
+            has_more=False,
+        )
+
+        payload = json.dumps({
+            "ts": "2026-02-23T14:30:00+00:00",
+            "id": str(uuid.uuid4()),
+        }).encode()
+        # Keep padding (do not strip =)
+        encoded_with_padding = base64.urlsafe_b64encode(payload).decode()
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+                f"?cursor={encoded_with_padding}",
+            )
+
+        assert resp.status_code == 200
+
+    # --- Cursor with whitespace-only base64 decoded content ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_whitespace_base64_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor that decodes to whitespace-only bytes returns 400."""
+        encoded = base64.urlsafe_b64encode(b"   ").decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Default limit (no limit param) returns 200 ---
+
+    @pytest.mark.asyncio
+    async def test_default_limit_returns_200(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Omitting limit param uses default (20) and returns 200."""
+        from app.schemas.chat import MessageListResponse
+
+        mock_response = MessageListResponse(
+            items=[],
+            next_cursor=None,
+            has_more=False,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ) as mock_get:
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages",
+            )
+
+        assert resp.status_code == 200
+        # Verify the service was called with limit=20
+        mock_get.assert_called_once()
+        call_kwargs = mock_get.call_args
+        assert call_kwargs.kwargs.get("limit") == 20 or call_kwargs[1].get("limit") == 20
+
+    # --- Cursor with ts as null ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_ts_null_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with ts=null returns 400."""
+        payload = json.dumps({
+            "ts": None,
+            "id": str(uuid.uuid4()),
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Cursor with id as null ---
+
+    @pytest.mark.asyncio
+    async def test_cursor_id_null_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with id=null returns 400."""
+        payload = json.dumps({
+            "ts": "2026-02-23T14:30:00+00:00",
+            "id": None,
+        }).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"

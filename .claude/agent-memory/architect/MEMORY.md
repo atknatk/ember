@@ -147,3 +147,21 @@
 - For features that are pure external-API wrappers (Mem0, etc.), the "Data Models" section is "no new tables, no new columns" but should list which existing columns are READ.
 - When an external SDK returns data in its own format, document the expected response shape and how each field maps to the Pydantic schema.
 - For features with multiple routers in one module, document the registration pattern in main.py explicitly.
+
+## Key Decisions Log (P01-09)
+
+- P01-09: Onboarding memories seeded as GLOBAL (user_id only, no agent_id) -- basic user facts should be visible to all characters per docs/05-ai-bellek.md.
+- P01-09: Single Haiku call for all 7 Q&A pairs -- cheaper and faster than 7 separate calls.
+- P01-09: Deterministic fallback when Haiku returns unparseable JSON -- onboarding must not block on LLM flakiness.
+- P01-09: 409 Conflict for re-onboarding -- prevents duplicate memory seeding.
+- P01-09: Profile.name updated from preferred_name answer if different -- users register with full name but prefer nicknames.
+- P01-09: Foreground Mem0 seeding (not background task) -- one-time operation, need accurate success/failure reporting for retries.
+- P01-09: Ordering: Haiku (stateless) -> Mem0 (idempotent) -> DB flag -- maximizes retry safety.
+- P01-09: No new config values needed -- anthropic_api_key, claude_haiku_model, mem0_api_key all exist.
+
+## Implementation State After P01-08
+
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py` + `memories.py`.
+- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py`.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py`.
+- `backend/app/main.py` registers health, auth, characters, chat, and memories (global + character) routers (6 include_router calls).

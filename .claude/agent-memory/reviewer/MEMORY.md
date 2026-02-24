@@ -40,7 +40,19 @@
 - Backend-tester created SEPARATE `_extended.py` files this time (not appended to originals)
 - 110 total tests at 100% coverage
 
+## Onboarding Endpoint Review Notes
+- Single endpoint: POST /api/v1/onboarding/complete (router prefix set in main.py)
+- Global Mem0 scope: `user_id` only, NO `agent_id` -- onboarding facts visible to all characters
+- Retry-safe ordering: Haiku (stateless) -> Mem0 (idempotent) -> DB flag update
+- `except HTTPException: raise` before generic `except Exception` -- critical for preserving 429 etc.
+- Claude SDK is natively async (AsyncAnthropic), Mem0 SDK is sync (wrapped in asyncio.to_thread)
+- Fallback templates in `_FALLBACK_TEMPLATES` dict when Haiku returns unparseable output
+- Pydantic validates max_length BEFORE field_validator strip() runs (documented in tests)
+- Backend-tester created SEPARATE `_extended.py` files (consistent with memory-endpoints pattern)
+- 131 total tests at 100% line + branch coverage
+
 ## Completed Reviews
 - P01-05 character-crud (backend layer): APPROVED 2026-02-23, 0 issues found
 - P01-06 chat-streaming (backend layer): APPROVED 2026-02-24, 0 issues found, 130 tests at 100% coverage
 - P01-08 memory-endpoints (backend layer): APPROVED 2026-02-24, 0 issues found, 110 tests at 100% coverage
+- P01-09 onboarding-endpoint (backend layer): APPROVED 2026-02-24, 0 issues found, 131 tests at 100% coverage

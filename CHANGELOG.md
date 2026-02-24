@@ -22,6 +22,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P01-06] SSE streaming chat endpoint with Claude AI integration, Mem0 memory, and device action intents
 - [P01-07] Composite cursor-based message pagination with (created_at, id) tiebreaker
 - [P01-08] Mem0 memory management endpoints (list, delete, clear per character + global memories)
+- [P01-09] Onboarding endpoint with Claude Haiku memory conversion and Mem0 seeding
 
 ---
 

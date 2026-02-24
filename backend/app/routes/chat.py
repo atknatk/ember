@@ -8,7 +8,6 @@ authentication. Business logic is delegated to ChatService.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -17,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_current_user, get_db
 from app.models.profile import Profile
 from app.schemas.chat import MessageListResponse, SendMessageRequest
-from app.services.chat_service import ChatService
+from app.services.chat_service import ChatService, MessageCursor, _decode_cursor
 
 router = APIRouter()
 
@@ -75,14 +74,15 @@ async def get_messages(
 ) -> MessageListResponse:
     """Retrieve paginated message history for a character's conversation.
 
-    Uses cursor-based pagination. Messages are returned newest-first.
+    Uses cursor-based pagination with composite (created_at, id) cursors
+    encoded as base64 URL-safe JSON. Messages are returned newest-first.
     Pass the ``next_cursor`` from a previous response as the ``cursor``
     query parameter to load the next page.
     """
-    # Parse cursor from ISO 8601 string to datetime
-    parsed_cursor: datetime | None = None
+    # Decode composite cursor from base64 JSON — raises 400 on invalid format
+    parsed_cursor: MessageCursor | None = None
     if cursor is not None:
-        parsed_cursor = datetime.fromisoformat(cursor)
+        parsed_cursor = _decode_cursor(cursor)
 
     service = ChatService(db)
     return await service.get_messages(

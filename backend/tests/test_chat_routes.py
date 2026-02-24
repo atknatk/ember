@@ -14,6 +14,7 @@ os.environ.setdefault(
     "postgresql+asyncpg://ember:ember@localhost:5432/ember_test",
 )
 
+import base64  # noqa: E402
 import json  # noqa: E402
 import uuid  # noqa: E402
 from collections.abc import AsyncGenerator  # noqa: E402
@@ -27,6 +28,7 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 from app.dependencies import get_current_user, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.chat_service import _encode_cursor  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -462,7 +464,7 @@ class TestGetMessages:
 
     @pytest.mark.asyncio
     async def test_get_messages_with_cursor(self, client: AsyncClient) -> None:
-        """Returns 200 with messages older than cursor."""
+        """Returns 200 with messages older than cursor (base64 composite cursor)."""
         from app.schemas.chat import MessageListResponse
 
         mock_response = MessageListResponse(
@@ -471,13 +473,17 @@ class TestGetMessages:
             has_more=False,
         )
 
+        cursor_ts = datetime(2026, 2, 23, 14, 30, 0, tzinfo=UTC)
+        cursor_id = uuid.UUID("550e8400-e29b-41d4-a716-446655440088")
+        encoded_cursor = _encode_cursor(cursor_ts, cursor_id)
+
         with patch(
             "app.services.chat_service.ChatService.get_messages",
             return_value=mock_response,
         ):
             resp = await client.get(
                 f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
-                "?cursor=2026-02-23T14:30:00%2B00:00",
+                f"?cursor={encoded_cursor}",
             )
 
         assert resp.status_code == 200
@@ -590,6 +596,7 @@ class TestGetMessages:
         from app.schemas.chat import MessageItem, MessageListResponse
 
         now = datetime.now(tz=UTC)
+        last_item_id = uuid.uuid4()
         items = [
             MessageItem(
                 id=str(uuid.uuid4()),
@@ -599,11 +606,21 @@ class TestGetMessages:
                 metadata=None,
                 created_at=now - timedelta(minutes=i),
             )
-            for i in range(5)
+            for i in range(4)
         ]
+        items.append(
+            MessageItem(
+                id=str(last_item_id),
+                role="user",
+                content="msg 4",
+                media_url=None,
+                metadata=None,
+                created_at=now - timedelta(minutes=4),
+            ),
+        )
         mock_response = MessageListResponse(
             items=items,
-            next_cursor=(now - timedelta(minutes=4)).isoformat(),
+            next_cursor=_encode_cursor(now - timedelta(minutes=4), last_item_id),
             has_more=True,
         )
 
@@ -932,11 +949,12 @@ class TestGetMessagesAdditional:
         self,
         client: AsyncClient,
     ) -> None:
-        """next_cursor is a valid ISO 8601 string when has_more is true."""
+        """next_cursor is a valid base64 JSON string with ts and id when has_more is true."""
         from app.schemas.chat import MessageItem, MessageListResponse
 
         now = datetime.now(tz=UTC)
-        cursor_value = (now - timedelta(minutes=10)).isoformat()
+        last_id = uuid.uuid4()
+        cursor_value = _encode_cursor(now - timedelta(minutes=10), last_id)
         items = [
             MessageItem(
                 id=str(uuid.uuid4()),
@@ -962,8 +980,14 @@ class TestGetMessagesAdditional:
             )
 
         data = resp.json()
-        # Verify next_cursor is a parseable ISO 8601 string
-        datetime.fromisoformat(data["next_cursor"])
+        # Verify next_cursor is a valid base64 JSON with ts and id
+        raw_cursor = data["next_cursor"]
+        padded = raw_cursor + "=" * (-len(raw_cursor) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(padded))
+        assert "ts" in decoded
+        assert "id" in decoded
+        datetime.fromisoformat(decoded["ts"])
+        uuid.UUID(decoded["id"])
 
     @pytest.mark.asyncio
     async def test_get_messages_conversation_not_found_returns_404(
@@ -986,3 +1010,214 @@ class TestGetMessagesAdditional:
 
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Conversation not found"
+
+    # --- R1: Invalid cursor (not base64) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_not_base64_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor that is not valid base64 returns 400."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            "?cursor=!!!not-base64!!!",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- R2: Invalid cursor (valid base64, invalid JSON) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_base64_not_json_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor with valid base64 but not valid JSON returns 400."""
+        encoded = base64.urlsafe_b64encode(b"not json at all").decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- R3: Invalid cursor (valid JSON, missing ts) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_missing_ts_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON missing 'ts' field returns 400."""
+        payload = json.dumps({"id": str(uuid.uuid4())}).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- R4: Invalid cursor (valid JSON, missing id) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_missing_id_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON missing 'id' field returns 400."""
+        payload = json.dumps({"ts": "2026-02-23T14:30:00+00:00"}).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- R5: Invalid cursor (valid JSON, ts not ISO 8601) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_bad_ts_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with non-ISO 'ts' field returns 400."""
+        payload = json.dumps(
+            {"ts": "not-a-timestamp", "id": str(uuid.uuid4())},
+        ).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- R6: Invalid cursor (valid JSON, id not UUID) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_bad_id_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Cursor JSON with non-UUID 'id' field returns 400."""
+        payload = json.dumps(
+            {"ts": "2026-02-23T14:30:00+00:00", "id": "not-a-uuid"},
+        ).encode()
+        encoded = base64.urlsafe_b64encode(payload).decode()
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            f"?cursor={encoded}",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- R7: Valid base64 cursor is accepted ---
+
+    @pytest.mark.asyncio
+    async def test_valid_base64_cursor_accepted(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Valid base64 composite cursor is accepted and returns 200."""
+        from app.schemas.chat import MessageListResponse
+
+        mock_response = MessageListResponse(
+            items=[],
+            next_cursor=None,
+            has_more=False,
+        )
+
+        cursor_ts = datetime(2026, 2, 23, 14, 30, 0, tzinfo=UTC)
+        cursor_id = uuid.UUID("550e8400-e29b-41d4-a716-446655440088")
+        encoded_cursor = _encode_cursor(cursor_ts, cursor_id)
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+                f"?cursor={encoded_cursor}",
+            )
+
+        assert resp.status_code == 200
+
+    # --- R8: next_cursor decodes to JSON with ts and id ---
+
+    @pytest.mark.asyncio
+    async def test_next_cursor_decodes_to_ts_and_id(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """next_cursor in response decodes to JSON with valid ts and id fields."""
+        from app.schemas.chat import MessageItem, MessageListResponse
+
+        now = datetime.now(tz=UTC)
+        last_id = uuid.uuid4()
+        items = [
+            MessageItem(
+                id=str(last_id),
+                role="user",
+                content="Hello",
+                media_url=None,
+                metadata=None,
+                created_at=now,
+            ),
+        ]
+        mock_response = MessageListResponse(
+            items=items,
+            next_cursor=_encode_cursor(now, last_id),
+            has_more=True,
+        )
+
+        with patch(
+            "app.services.chat_service.ChatService.get_messages",
+            return_value=mock_response,
+        ):
+            resp = await client.get(
+                f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages?limit=1",
+            )
+
+        data = resp.json()
+        raw_cursor = data["next_cursor"]
+        padded = raw_cursor + "=" * (-len(raw_cursor) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(padded))
+        assert "ts" in decoded
+        assert "id" in decoded
+        # ts is valid ISO 8601
+        datetime.fromisoformat(decoded["ts"])
+        # id is valid UUID
+        uuid.UUID(decoded["id"])
+
+    # --- R9: Empty cursor string returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_empty_cursor_string_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Empty cursor string returns 400."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            "?cursor=",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"
+
+    # --- Old format cursor (plain ISO timestamp) returns 400 ---
+
+    @pytest.mark.asyncio
+    async def test_old_format_cursor_returns_400(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Plain ISO 8601 timestamp cursor (old format) returns 400."""
+        resp = await client.get(
+            f"/api/v1/characters/{FAKE_CHARACTER_ID}/messages"
+            "?cursor=2026-02-23T14:30:00%2B00:00",
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid cursor format"

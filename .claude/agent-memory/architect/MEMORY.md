@@ -165,3 +165,29 @@
 - `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py`.
 - `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py`.
 - `backend/app/main.py` registers health, auth, characters, chat, and memories (global + character) routers (6 include_router calls).
+
+## Key Decisions Log (P01-10)
+
+- P01-10: Presigned PUT over presigned POST -- simpler mobile integration (single PUT with raw bytes).
+- P01-10: UUID in S3 key (not timestamp) per issue description -- differs from docs/09-dagitim.md; issue takes precedence.
+- P01-10: Per-type content_type whitelist -- photo types reject audio MIME types and vice versa.
+- P01-10: ContentLengthRange via S3 bucket policy (not presigned URL) -- PUT presigned URLs don't support ContentLengthRange conditions.
+- P01-10: Filename sanitization over rejection -- camera roll filenames often have spaces/special chars.
+- P01-10: Module-level boto3 S3 client -- designed for reuse, unlike Mem0 client (per-call).
+- P01-10: No DB writes -- file_url stored on messages.media_url when user sends a message (chat flow).
+- P01-10: 5-minute presigned URL expiration -- balance between usability and security.
+- P01-10: No new config values -- s3_bucket_name, aws_region already exist.
+- P01-10: audio/mpeg accepted alongside audio/mp3 -- official IANA MIME type for MP3.
+
+## Implementation State After P01-09
+
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py` + `memories.py` + `onboarding.py`.
+- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py` + `onboarding_service.py`.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py` + `onboarding.py`.
+- `backend/app/main.py` registers health, auth, characters, chat, memories (global + character), and onboarding routers (7 include_router calls).
+
+## Spec Writing Patterns (P01-10 lesson)
+
+- For S3/storage features, clearly document the presigned URL generation approach (PUT vs POST) and explain why ContentLengthRange enforcement is an infrastructure concern for PUT URLs.
+- When docs and issue description conflict on S3 key format, the issue description takes precedence (it is the feature-specific requirement).
+- For features that wrap AWS SDK calls (boto3), note that some methods (like generate_presigned_url) are local computations that don't need asyncio.to_thread(), unlike network-calling methods.

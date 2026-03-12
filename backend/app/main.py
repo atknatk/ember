@@ -19,7 +19,7 @@ from app.core.logging import setup_logging
 from app.core.rate_limit import RateLimiter
 from app.db.session import engine
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.routes import auth, characters, chat, health, media, memories, onboarding
+from app.routes import auth, characters, chat, health, media, memories, onboarding, profile
 
 logger = logging.getLogger("ember")
 
@@ -76,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(memories.character_router, prefix="/api/v1/characters", tags=["memories"])
     app.include_router(media.router, prefix="/api/v1/media", tags=["media"])
     app.include_router(onboarding.router, prefix="/api/v1/onboarding", tags=["onboarding"])
+    app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
 
     # Global exception handler
     @app.exception_handler(Exception)

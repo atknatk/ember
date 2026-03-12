@@ -20,11 +20,19 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://ember:ember@localhos
 from collections.abc import AsyncGenerator  # noqa: E402
 from unittest.mock import AsyncMock  # noqa: E402
 
+import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 from app.dependencies import get_db  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """Clear rate limiter buckets before each test to prevent cross-test interference."""
+    if hasattr(app.state, "rate_limiter"):
+        app.state.rate_limiter._buckets.clear()
 
 
 async def _override_get_db() -> AsyncGenerator[AsyncMock, None]:

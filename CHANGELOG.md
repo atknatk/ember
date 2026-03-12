@@ -24,6 +24,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P01-08] Mem0 memory management endpoints (list, delete, clear per character + global memories)
 - [P01-09] Onboarding endpoint with Claude Haiku memory conversion and Mem0 seeding
 - [P01-10] S3 presigned URL media upload endpoint with content type validation and filename sanitization
+- [P1.5-01] Per-user rate limiting middleware with configurable limits per endpoint group (chat/write/read)
 
 ---
 

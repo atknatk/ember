@@ -191,3 +191,23 @@
 - For S3/storage features, clearly document the presigned URL generation approach (PUT vs POST) and explain why ContentLengthRange enforcement is an infrastructure concern for PUT URLs.
 - When docs and issue description conflict on S3 key format, the issue description takes precedence (it is the feature-specific requirement).
 - For features that wrap AWS SDK calls (boto3), note that some methods (like generate_presigned_url) are local computations that don't need asyncio.to_thread(), unlike network-calling methods.
+
+## Key Decisions Log (P1.5-01)
+
+- P1.5-01: In-memory token bucket over Redis -- single ECS task in Phase 1.5, no infra overhead. RateLimiter interface designed for future Redis swap.
+- P1.5-01: Three groups (chat=10, write=20, read=60 req/min) over per-endpoint limits -- maps to cost profile, avoids maintenance burden.
+- P1.5-01: Lightweight JWT parsing (base64 decode) in middleware, not full JWKS verification -- avoids duplicating get_current_user work.
+- P1.5-01: Fail-open on middleware errors -- rate limiting is defense-in-depth, not a security boundary.
+- P1.5-01: BaseHTTPMiddleware over pure ASGI -- simpler to implement/test, negligible perf difference.
+- P1.5-01: Health endpoint exempt by path, not by auth absence -- login/register should still be rate-limited by IP.
+- P1.5-01: New directory `app/middleware/` established -- separate from `core/` for request-lifecycle concerns.
+- P1.5-01: Three new config fields: rate_limit_chat, rate_limit_write, rate_limit_read.
+- P1.5-01: No new dependencies -- uses only stdlib and Starlette's BaseHTTPMiddleware.
+
+## Implementation State After P01-10
+
+- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py` + `memories.py` + `onboarding.py` + `media.py`.
+- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py` + `onboarding_service.py`.
+- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py` + `onboarding.py`.
+- `backend/app/main.py` registers health, auth, characters, chat, memories (global + character), media, and onboarding routers (8 include_router calls).
+- `backend/app/middleware/` does NOT exist yet -- P1.5-01 creates it.

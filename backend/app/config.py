@@ -81,6 +81,18 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "*"
 
+    # Observability — Sentry
+    sentry_dsn: str = ""
+    sentry_environment: str = "development"
+    sentry_traces_sample_rate: float = 0.1
+
+    # Observability — Health Check
+    health_check_timeout: float = 3.0
+    health_check_degraded_threshold: float = 1.0
+
+    # Observability — Logging
+    log_request_body: bool = False
+
     def model_post_init(self, __context: object) -> None:
         """Load secrets from AWS Secrets Manager in production."""
         if not self.debug and self.aws_secret_name:

@@ -37,6 +37,7 @@ from app.schemas.chat import (
     MessageItem,
     MessageListResponse,
 )
+from app.utils.timing import log_external_call
 
 logger = logging.getLogger("ember")
 
@@ -207,16 +208,17 @@ class ChatService:
 
         try:
             client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-            async with client.messages.stream(
-                model=settings.claude_model,
-                system=system_prompt,
-                messages=formatted_messages,
-                max_tokens=2048,
-            ) as stream:
-                async for text in stream.text_stream:
-                    full_response += text
-                    event = ChunkEvent(content=text)
-                    yield f"data: {event.model_dump_json()}\n\n"
+            async with log_external_call("claude", "stream"):
+                async with client.messages.stream(
+                    model=settings.claude_model,
+                    system=system_prompt,
+                    messages=formatted_messages,
+                    max_tokens=2048,
+                ) as stream:
+                    async for text in stream.text_stream:
+                        full_response += text
+                        event = ChunkEvent(content=text)
+                        yield f"data: {event.model_dump_json()}\n\n"
 
         except Exception:
             logger.exception(
@@ -391,11 +393,12 @@ class ChatService:
             if agent_id is not None:
                 kwargs["agent_id"] = agent_id
 
-            results = await asyncio.to_thread(
-                client.search,
-                query,
-                **kwargs,
-            )
+            async with log_external_call("mem0", "search"):
+                results = await asyncio.to_thread(
+                    client.search,
+                    query,
+                    **kwargs,
+                )
             return [r["memory"] for r in results]
         except Exception:
             logger.exception(
@@ -485,11 +488,12 @@ class ChatService:
             )
 
             client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-            response = await client.messages.create(
-                model=settings.claude_haiku_model,
-                max_tokens=256,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            async with log_external_call("claude", "create"):
+                response = await client.messages.create(
+                    model=settings.claude_haiku_model,
+                    max_tokens=256,
+                    messages=[{"role": "user", "content": prompt}],
+                )
             raw_text = response.content[0].text.strip()
 
             if raw_text.lower() == "none":
@@ -583,15 +587,16 @@ async def _persist_exchange(
     # Mem0 add (outside DB transaction)
     try:
         client = MemoryClient(api_key=settings.mem0_api_key)
-        await asyncio.to_thread(
-            client.add,
-            [
-                {"role": "user", "content": user_content},
-                {"role": "assistant", "content": assistant_content},
-            ],
-            user_id=mem0_user_id,
-            agent_id=mem0_agent_id,
-        )
+        async with log_external_call("mem0", "add"):
+            await asyncio.to_thread(
+                client.add,
+                [
+                    {"role": "user", "content": user_content},
+                    {"role": "assistant", "content": assistant_content},
+                ],
+                user_id=mem0_user_id,
+                agent_id=mem0_agent_id,
+            )
     except Exception:
         logger.exception("Mem0 add failed for agent_id=%s", mem0_agent_id)
 

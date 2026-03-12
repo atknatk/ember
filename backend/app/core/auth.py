@@ -19,6 +19,7 @@ from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
 from app.config import settings
+from app.utils.timing import log_external_call
 
 logger = logging.getLogger("ember")
 
@@ -79,10 +80,11 @@ class CognitoJWKSProvider:
             return self._jwks_cache  # type: ignore[return-value]
 
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(self._jwks_url, timeout=5)
-                resp.raise_for_status()
-                jwks: dict[str, object] = resp.json()
+            async with log_external_call("cognito", "jwks_fetch"):
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(self._jwks_url, timeout=5)
+                    resp.raise_for_status()
+                    jwks: dict[str, object] = resp.json()
             self._jwks_cache = jwks
             self._cache_timestamp = time.monotonic()
             return jwks

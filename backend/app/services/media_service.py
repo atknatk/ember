@@ -18,6 +18,7 @@ from fastapi import HTTPException, status
 
 from app.config import settings
 from app.schemas.media import UploadUrlResponse
+from app.utils.timing import log_external_call
 
 logger = logging.getLogger("ember")
 
@@ -112,17 +113,18 @@ class MediaService:
 
         # Generate presigned PUT URL via boto3 (wrapped in asyncio.to_thread for safety)
         try:
-            upload_url = await asyncio.to_thread(
-                _s3_client.generate_presigned_url,
-                "put_object",
-                Params={
-                    "Bucket": settings.s3_bucket_name,
-                    "Key": s3_key,
-                    "ContentType": content_type,
-                },
-                ExpiresIn=_PRESIGNED_URL_EXPIRATION,
-                HttpMethod="PUT",
-            )
+            async with log_external_call("s3", "generate_presigned_url"):
+                upload_url = await asyncio.to_thread(
+                    _s3_client.generate_presigned_url,
+                    "put_object",
+                    Params={
+                        "Bucket": settings.s3_bucket_name,
+                        "Key": s3_key,
+                        "ContentType": content_type,
+                    },
+                    ExpiresIn=_PRESIGNED_URL_EXPIRATION,
+                    HttpMethod="PUT",
+                )
         except (ClientError, Exception):
             logger.exception(
                 "S3 presigned URL generation failed for user_id=%s, s3_key=%s",

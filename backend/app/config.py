@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     # Push Notifications
     firebase_credentials_json: str = ""
 
+    # Rate Limiting
+    rate_limit_chat: int = 10
+    rate_limit_write: int = 20
+    rate_limit_read: int = 60
+
     # CORS
     cors_origins: str = "*"
 

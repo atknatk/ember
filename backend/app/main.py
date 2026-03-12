@@ -16,7 +16,9 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.core.logging import setup_logging
+from app.core.rate_limit import RateLimiter
 from app.db.session import engine
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.routes import auth, characters, chat, health, media, memories, onboarding
 
 logger = logging.getLogger("ember")
@@ -40,7 +42,22 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS middleware
+    # Rate limiting middleware (registered before CORS so that CORS wraps it
+    # as the outer middleware and adds CORS headers to 429 responses).
+    # Starlette applies middleware in reverse registration order: last added = outermost.
+    rate_limiter = RateLimiter(
+        group_limits={
+            "chat": settings.rate_limit_chat,
+            "write": settings.rate_limit_write,
+            "read": settings.rate_limit_read,
+        },
+        exempt_paths={"/api/v1/health"},
+    )
+    app.state.rate_limiter = rate_limiter
+    app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
+
+    # CORS middleware (registered last = outermost, so CORS headers appear on all responses
+    # including 429 rate limit responses)
     origins = [o.strip() for o in settings.cors_origins.split(",")]
     app.add_middleware(
         CORSMiddleware,

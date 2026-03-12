@@ -2,212 +2,55 @@
 
 ## Project Structure Observations
 
-- The `backend/` directory was scaffolded with empty subdirectories: `app/routes/`, `app/services/`, `app/models/`, `app/utils/`, and `tests/`. Missing from initial scaffold: `app/core/`, `app/schemas/`, `app/db/`.
-- `docs/standards/backend.md` Section 1 is the authoritative directory layout. It specifies `schemas/` and `db/` which the GitHub issue descriptions sometimes omit. Always cross-reference the standard.
-- `shared/feature-specs/` and `docs/pipeline/` start with only `.gitkeep` files.
+- [project_structure.md](project_structure.md) — if it exists, otherwise inline below:
 - `shared/api-contracts/` is empty -- no OpenAPI specs exist yet.
+- `docs/standards/backend.md` Section 1 is the authoritative directory layout.
 
 ## Spec Writing Patterns
 
-- Backend-only features (layer: backend) do not need iOS or Android sections. Skip sections 5 and 6 from the full template.
-- For scaffold/infra features with no business logic, the "API Changes" section is minimal (just health endpoint), and "DB Changes" is "no new tables."
-- The File Manifest should count every `__init__.py` file explicitly.
-- Always include `.env.example`, `.gitignore`, `.dockerignore` in the file manifest for scaffold features.
+- Backend-only features (layer: backend) skip iOS/Android sections 5 and 6.
+- For scaffold/infra features, "API Changes" is minimal. For DB-only features, "API Changes" is "no new endpoints."
+- The File Manifest should count every `__init__.py` file explicitly (for scaffold features).
+- For MODIFY-only features, the file manifest is small but still list every modified file.
+- When docs/standards/common.md and issue description conflict, note the discrepancy and state which takes precedence.
+- For external-API wrappers (Mem0, etc.), list which existing DB columns are READ.
+- For S3/storage features, document presigned URL approach (PUT vs POST).
+- TimestampMixin: not for append-only tables (messages) or tables with non-standard timestamp columns (user_activity).
+- CHECK constraints preferred over PG ENUMs.
+- NUMERIC over FLOAT for health/measurement data.
 
-## Spec Writing Patterns (continued)
+## Key Decisions Log (P01-01 through P01-04)
 
-- For DB schema features, the "API Changes" section is "no new endpoints" -- state this explicitly.
-- TimestampMixin is not always appropriate. `messages` is append-only (no updated_at), `user_activity` has no created_at. Document WHY each table does or does not use the mixin.
-- The existing `models/__init__.py` is nearly empty. Each new model feature must update it with imports.
-- The existing `env.py` imports Base but not model modules. The wildcard `from app.models import *` must be added.
-- CHECK constraints are preferred over PostgreSQL ENUM types (easier to modify, no ALTER TYPE needed).
-- NUMERIC over FLOAT for health/measurement data (exact decimal storage).
+- P01-01: Health endpoint public, no DB. Alembic configured, zero migrations.
+- P01-02: CASCADE on profile FKs. SET NULL for partners.user_id_2.
+- P01-03: Auth in core/auth.py. CognitoJWKSProvider with TTL cache. Validate token_use=id.
+- P01-04: USER_PASSWORD_AUTH. asyncio.to_thread() for boto3. mem0_user_id = "user_{sub}". Single DB txn for Profile+Character+Conversation. email-validator needed.
 
-## Key Decisions Log
+## Key Decisions Log (P01-05 through P01-10)
 
-- P01-01: Health endpoint is public, does not touch DB. Rationale: ECS health checks must not fail during DB failover.
-- P01-01: `get_current_user` stubbed as 501 -- auth is a separate feature (P01-03).
-- P01-01: Alembic configured but zero migrations -- first migration comes with P01-02.
-- P01-02: Messages table omits TimestampMixin (append-only, no updated_at needed).
-- P01-02: user_activity omits TimestampMixin (has updated_at but no created_at per docs/04-veri-api.md).
-- P01-02: CHECK constraints over PG ENUMs for subscription_tier, role, partner status.
-- P01-02: ON DELETE SET NULL for partners.user_id_2, CASCADE for user_id_1.
-- P01-02: Single initial migration for all 7 tables.
-- P01-03: Auth module in `core/auth.py` (not `utils/cognito.py`) -- consistent with `core/logging.py` from P01-01.
-- P01-03: CognitoJWKSProvider class with TTL cache, not simple module-level dict -- needs timestamp + force-refresh logic.
-- P01-03: Validate `token_use=id` (not access) -- Ember uses Cognito ID tokens.
-- P01-03: Stale JWKS cache preferred over hard failure when endpoint unreachable.
-- P01-03: Force JWKS refresh on kid miss (key rotation handling).
-- P01-03: config.py already has cognito_user_pool_id, cognito_app_client_id, aws_region -- no changes needed.
+- P01-05: Haiku for system prompt gen. No pagination on character list. Soft delete. mem0_agent_id uniqueness fallback.
+- P01-06: SSE over WebSocket. Background task persistence. Separate Haiku for intent. 50 msgs context. Mem0 SDK synchronous, wrapped in to_thread().
+- P01-07: Composite cursor (created_at, id). Base64 URL-safe JSON. tuple_() comparison. Default limit 20.
+- P01-08: No pagination on memory list. Idempotent delete. 503 for Mem0 failures. Field named `memory`.
+- P01-09: Onboarding memories global. Single Haiku call for all Q&A. Deterministic fallback. 409 for re-onboarding.
+- P01-10: Presigned PUT. UUID in S3 key. Per-type content_type whitelist. 5-minute expiration.
 
-## Key Decisions Log (continued)
+## Key Decisions Log (P1.5-01 through P1.5-02)
 
-- P01-04: Auto-confirm via admin_confirm_sign_up -- email verification deferred to Phase 2.
-- P01-04: USER_PASSWORD_AUTH (not SRP) -- backend-to-Cognito is HTTPS, SRP is for client-side SDKs.
-- P01-04: asyncio.to_thread() for boto3 calls -- standard library over aioboto3.
-- P01-04: Default character named "Ember" with template "companion".
-- P01-04: mem0_user_id = "user_{sub}" with lazy Mem0 user creation (no explicit API call).
-- P01-04: Single DB transaction for Profile + Character + Conversation.
-- P01-04: Idempotent registration handles Cognito-DB split-brain edge case.
-- P01-04: email-validator package needed for Pydantic EmailStr.
+- P1.5-01: In-memory token bucket. Three groups (chat=10, write=20, read=60). Fail-open. Lightweight JWT parsing in middleware.
+- P1.5-02: DB cascade handles all relational cleanup on profile delete. DB deletion first, then best-effort Mem0/S3/Cognito cleanup.
+- P1.5-02: Return 204 if partial external cleanup fails; 503 only if ALL external cleanups fail.
+- P1.5-02: "DELETE MY ACCOUNT" confirmation string required for account deletion.
+- P1.5-02: Pydantic model_fields_set to distinguish "field not sent" vs "field sent as null" for avatar_url.
+- P1.5-02: New ProfileResponse schema (not modifying existing UserResponse in auth.py).
+- P1.5-02: IANA timezone validation via stdlib zoneinfo.ZoneInfo. Supported languages: en, tr.
+- P1.5-02: Cognito deletion via admin_delete_user (not delete_user) -- does not require user's access token.
+- P1.5-02: Parallel Mem0 delete_all calls via asyncio.gather with return_exceptions=True.
+- P1.5-02: No new config values needed.
 
-## Implementation State After P01-04
+## Implementation State
 
-- `backend/app/models/` has all 7 model files + populated `__init__.py` with all imports.
-- `backend/app/dependencies.py` has `get_db` (real) + `get_current_user` (real -- JWT verification + Profile lookup).
-- `backend/app/core/auth.py` has CognitoJWKSProvider + verify_cognito_token.
-- `backend/app/config.py` Settings class has cognito fields. Does NOT have `claude_haiku_model` yet.
-- `backend/app/core/` has `__init__.py` + `logging.py` + `auth.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py`.
-- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py`.
-- `backend/requirements.txt` includes python-jose[cryptography], httpx, boto3, anthropic, email-validator.
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py`.
-- `backend/app/main.py` registers health and auth routers.
+See [implementation_state.md](implementation_state.md) for full per-feature file tracking.
 
-## Key Decisions Log (P01-05)
-
-- P01-05: Claude Haiku for system prompt generation (not Sonnet) -- cheap/fast for short one-time text.
-- P01-05: No cursor pagination on character list -- users have at most dozens of characters.
-- P01-05: system_prompt excluded from list response, included in POST/PUT responses only.
-- P01-05: Soft delete (is_active=false) per docs/04-veri-api.md.
-- P01-05: Template and mem0_agent_id are immutable after creation.
-- P01-05: mem0_agent_id uniqueness fallback: {template}_{uuid[:8]}_{user_id} for duplicate templates.
-- P01-05: New config field: claude_haiku_model = "claude-haiku-4-5".
-- P01-05: No Mem0 API calls during character CRUD -- agent_id stored for future messaging use.
-
-## Key Decisions Log (P01-06)
-
-- P01-06: SSE over WebSocket for chat streaming -- request-response, not bidirectional.
-- P01-06: Background task persistence (after stream) -- minimizes TTFT (<1s target).
-- P01-06: Background tasks use separate AsyncSessionLocal() -- request session closes with StreamingResponse.
-- P01-06: Separate Haiku call for intent extraction -- keeps Sonnet response natural, cheaper.
-- P01-06: 50 messages context (configurable via max_context_messages) -- CLAUDE.md says 30-50.
-- P01-06: 3 parallel fetches in asyncio.gather(): global Mem0, character Mem0, DB last 50 messages.
-- P01-06: Mem0 SDK is synchronous -- all calls wrapped in asyncio.to_thread().
-- P01-06: Chat router registered under /api/v1/characters prefix -- routes use /{character_id}/messages, no conflict with character CRUD router.
-- P01-06: Auto-create conversation if missing (defensive).
-- P01-06: Action metadata stored on assistant message's JSONB metadata_ column.
-- P01-06: SSE format: data: {json}\n\n with type field in JSON (no event: header).
-
-## Key Decisions Log (P01-07)
-
-- P01-07: Composite cursor (created_at, id) over plain ISO timestamp -- fixes correctness bug with same-timestamp messages.
-- P01-07: Base64 URL-safe JSON cursor encoding per docs/standards/common.md Section 6.
-- P01-07: No backward compatibility for old plain-ISO cursors -- no mobile client has shipped yet.
-- P01-07: No index changes needed -- existing idx_messages_conv_time is sufficient, id tiebreaker operates on small result set.
-- P01-07: SQLAlchemy tuple_() for row-value comparison: (created_at, id) < ($ts, $id).
-- P01-07: Default limit stays at 20 (matches issue description; common.md says 30 but issue takes precedence).
-- P01-07: Single HTTPException(400) for all cursor parse failures -- do not expose internal error details.
-- P01-07: MODIFY-only feature -- no new files created in backend, only updates to 4 existing files.
-
-## Implementation State After P01-06
-
-- `backend/app/config.py` now has `claude_haiku_model`, `claude_model`, `max_context_messages: int = 50`.
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py`.
-- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py`.
-- `backend/app/main.py` registers health, auth, characters, and chat routers.
-- `backend/app/db/session.py` has AsyncSessionLocal (used by background tasks).
-- Tests: `test_chat_routes.py` (989 lines) and `test_chat_service.py` (1947 lines) with comprehensive coverage.
-
-## Implementation State After P01-05
-
-- `backend/app/config.py` now has `claude_haiku_model: str = "claude-haiku-4-5"`.
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py`.
-- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py`.
-- `backend/app/main.py` registers health, auth, and characters routers.
-
-## Key Decisions Log (P01-08)
-
-- P01-08: No pagination on memory list endpoints -- Mem0 get_all() has no cursor support, memory counts are low.
-- P01-08: Idempotent single-memory delete -- Mem0 "not found" treated as success (204), not 404.
-- P01-08: Two routers in one module (global_router + character_router) -- different prefixes, same domain.
-- P01-08: memory_id is str not uuid.UUID -- external service IDs should not be type-enforced.
-- P01-08: Character ownership checked on all character-scoped ops -- defense-in-depth for delete.
-- P01-08: 503 for all Mem0 failures -- per docs/standards/common.md Section 7.
-- P01-08: Field named `memory` (not `content`) -- matches Mem0 SDK response format.
-- P01-08: No new config values needed -- mem0_api_key already exists.
-- P01-08: No DB writes -- pure Mem0 SDK operations with character lookup only.
-
-## Implementation State After P01-07
-
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py`.
-- `backend/app/services/chat_service.py` has MessageCursor dataclass, _encode_cursor, _decode_cursor, tuple_ pagination.
-- `backend/app/main.py` registers health, auth, characters, chat routers (4 routers).
-
-## Spec Writing Patterns (P01-07 lesson)
-
-- When a feature mostly enhances an existing implementation, clearly document "What Already Exists" vs "What Changes" in a comparison table.
-- For MODIFY-only features with no new files, the file manifest is small. Still list every modified file explicitly.
-- When docs/standards/common.md and the issue description conflict on specifics (e.g., default limit 30 vs 20), note the discrepancy and state which takes precedence and why.
-
-## Spec Writing Patterns (P01-08 lesson)
-
-- For features that are pure external-API wrappers (Mem0, etc.), the "Data Models" section is "no new tables, no new columns" but should list which existing columns are READ.
-- When an external SDK returns data in its own format, document the expected response shape and how each field maps to the Pydantic schema.
-- For features with multiple routers in one module, document the registration pattern in main.py explicitly.
-
-## Key Decisions Log (P01-09)
-
-- P01-09: Onboarding memories seeded as GLOBAL (user_id only, no agent_id) -- basic user facts should be visible to all characters per docs/05-ai-bellek.md.
-- P01-09: Single Haiku call for all 7 Q&A pairs -- cheaper and faster than 7 separate calls.
-- P01-09: Deterministic fallback when Haiku returns unparseable JSON -- onboarding must not block on LLM flakiness.
-- P01-09: 409 Conflict for re-onboarding -- prevents duplicate memory seeding.
-- P01-09: Profile.name updated from preferred_name answer if different -- users register with full name but prefer nicknames.
-- P01-09: Foreground Mem0 seeding (not background task) -- one-time operation, need accurate success/failure reporting for retries.
-- P01-09: Ordering: Haiku (stateless) -> Mem0 (idempotent) -> DB flag -- maximizes retry safety.
-- P01-09: No new config values needed -- anthropic_api_key, claude_haiku_model, mem0_api_key all exist.
-
-## Implementation State After P01-08
-
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py` + `memories.py`.
-- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py`.
-- `backend/app/main.py` registers health, auth, characters, chat, and memories (global + character) routers (6 include_router calls).
-
-## Key Decisions Log (P01-10)
-
-- P01-10: Presigned PUT over presigned POST -- simpler mobile integration (single PUT with raw bytes).
-- P01-10: UUID in S3 key (not timestamp) per issue description -- differs from docs/09-dagitim.md; issue takes precedence.
-- P01-10: Per-type content_type whitelist -- photo types reject audio MIME types and vice versa.
-- P01-10: ContentLengthRange via S3 bucket policy (not presigned URL) -- PUT presigned URLs don't support ContentLengthRange conditions.
-- P01-10: Filename sanitization over rejection -- camera roll filenames often have spaces/special chars.
-- P01-10: Module-level boto3 S3 client -- designed for reuse, unlike Mem0 client (per-call).
-- P01-10: No DB writes -- file_url stored on messages.media_url when user sends a message (chat flow).
-- P01-10: 5-minute presigned URL expiration -- balance between usability and security.
-- P01-10: No new config values -- s3_bucket_name, aws_region already exist.
-- P01-10: audio/mpeg accepted alongside audio/mp3 -- official IANA MIME type for MP3.
-
-## Implementation State After P01-09
-
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py` + `memories.py` + `onboarding.py`.
-- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py` + `onboarding_service.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py` + `onboarding.py`.
-- `backend/app/main.py` registers health, auth, characters, chat, memories (global + character), and onboarding routers (7 include_router calls).
-
-## Spec Writing Patterns (P01-10 lesson)
-
-- For S3/storage features, clearly document the presigned URL generation approach (PUT vs POST) and explain why ContentLengthRange enforcement is an infrastructure concern for PUT URLs.
-- When docs and issue description conflict on S3 key format, the issue description takes precedence (it is the feature-specific requirement).
-- For features that wrap AWS SDK calls (boto3), note that some methods (like generate_presigned_url) are local computations that don't need asyncio.to_thread(), unlike network-calling methods.
-
-## Key Decisions Log (P1.5-01)
-
-- P1.5-01: In-memory token bucket over Redis -- single ECS task in Phase 1.5, no infra overhead. RateLimiter interface designed for future Redis swap.
-- P1.5-01: Three groups (chat=10, write=20, read=60 req/min) over per-endpoint limits -- maps to cost profile, avoids maintenance burden.
-- P1.5-01: Lightweight JWT parsing (base64 decode) in middleware, not full JWKS verification -- avoids duplicating get_current_user work.
-- P1.5-01: Fail-open on middleware errors -- rate limiting is defense-in-depth, not a security boundary.
-- P1.5-01: BaseHTTPMiddleware over pure ASGI -- simpler to implement/test, negligible perf difference.
-- P1.5-01: Health endpoint exempt by path, not by auth absence -- login/register should still be rate-limited by IP.
-- P1.5-01: New directory `app/middleware/` established -- separate from `core/` for request-lifecycle concerns.
-- P1.5-01: Three new config fields: rate_limit_chat, rate_limit_write, rate_limit_read.
-- P1.5-01: No new dependencies -- uses only stdlib and Starlette's BaseHTTPMiddleware.
-
-## Implementation State After P01-10
-
-- `backend/app/routes/` has `__init__.py` + `health.py` + `auth.py` + `characters.py` + `chat.py` + `memories.py` + `onboarding.py` + `media.py`.
-- `backend/app/services/` has `__init__.py` (empty) + `auth_service.py` + `character_service.py` + `chat_service.py` + `memory_service.py` + `onboarding_service.py`.
-- `backend/app/schemas/` has `__init__.py` (empty) + `health.py` + `auth.py` + `character.py` + `chat.py` + `memory.py` + `onboarding.py`.
-- `backend/app/main.py` registers health, auth, characters, chat, memories (global + character), media, and onboarding routers (8 include_router calls).
-- `backend/app/middleware/` does NOT exist yet -- P1.5-01 creates it.
+Current backend routes: health, auth, characters, chat, memories (2 routers), media, onboarding (8 include_router calls).
+After P1.5-02: adds profile router (9 include_router calls).

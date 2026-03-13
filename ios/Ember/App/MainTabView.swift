@@ -15,7 +15,7 @@ struct MainTabView: View {
 
         TabView(selection: $selectedTab) {
             NavigationStack(path: $router.path) {
-                HomePlaceholderView()
+                HomeView()
                     .navigationDestination(for: AppRouter.Route.self) { route in
                         destinationView(for: route)
                     }
@@ -87,6 +87,12 @@ struct MainTabView: View {
         case .settings:
             Text("Settings")
                 .foregroundStyle(Color.emberTextPrimary)
+        case .createCharacter:
+            Text("Create Character — Coming Soon")
+                .font(.emberTitle)
+                .foregroundStyle(Color.emberTextPrimary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.emberBackground.ignoresSafeArea())
         }
     }
 }

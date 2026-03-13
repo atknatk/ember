@@ -13,4 +13,13 @@ enum EmberSymbol {
     static let memoryTabFill = "brain.fill"
     static let profile = "person.circle"
     static let profileFill = "person.circle.fill"
+
+    // Template-specific icons for character cards
+    static let templateCompanion = "person.fill"
+    static let templateEnglishTeacher = "book.fill"
+    static let templateTherapist = "heart.text.square.fill"
+    static let templateFitnessCoach = "figure.run"
+    static let templateCareerCoach = "briefcase.fill"
+    static let templateCustom = "sparkles"
+    static let addCharacter = "plus.circle.fill"
 }

@@ -10,6 +10,7 @@ final class AppRouter {
         case chat(characterId: String)
         case memoryList(characterId: String)
         case settings
+        case createCharacter
     }
 
     func push(_ route: Route) {

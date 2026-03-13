@@ -27,10 +27,14 @@ enum APIEndpoint {
     case streamMessage(characterId: String)
     case listMessages(characterId: String, cursor: String?, limit: Int)
 
-    // Memories
+    // Memories (character-scoped)
     case listMemories(characterId: String)
     case deleteMemory(characterId: String, memoryId: String)
     case deleteAllMemories(characterId: String)
+
+    // Memories (global)
+    case listGlobalMemories
+    case deleteGlobalMemory(memoryId: String)
 
     // Media
     case uploadURL
@@ -78,6 +82,12 @@ enum APIEndpoint {
         case .deleteAllMemories(let characterId):
             return "/api/v1/characters/\(characterId)/memories"
 
+        // Memories (global)
+        case .listGlobalMemories:
+            return "/api/v1/memories"
+        case .deleteGlobalMemory(let memoryId):
+            return "/api/v1/memories/\(memoryId)"
+
         // Media
         case .uploadURL:
             return "/api/v1/media/upload-url"
@@ -114,13 +124,14 @@ enum APIEndpoint {
         case .listCharacters,
              .listMessages,
              .listMemories,
+             .listGlobalMemories,
              .getProfile:
             return .get
 
         case .updateCharacter, .updateProfile, .updateNotificationPreferences:
             return .put
 
-        case .deleteCharacter, .deleteMemory, .deleteAllMemories, .deleteAccount:
+        case .deleteCharacter, .deleteMemory, .deleteAllMemories, .deleteGlobalMemory, .deleteAccount:
             return .delete
         }
     }

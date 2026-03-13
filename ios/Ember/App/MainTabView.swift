@@ -31,7 +31,7 @@ struct MainTabView: View {
             .tag(Tab.home)
 
             NavigationStack {
-                MemoriesPlaceholderView()
+                MemoriesView()
                     .navigationDestination(for: AppRouter.Route.self) { route in
                         destinationView(for: route)
                     }

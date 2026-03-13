@@ -44,6 +44,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P03-05] iOS auth screen polish: animated Login/SignUp transitions, error shake micro-animation, fade-in on appear, inline email validation, password visibility toggles, and VoiceOver accessibility hints
 - [P03-06] iOS Home View with character grid, daily summary card, and add-character navigation
 - [P03-07] iOS Chat View with SSE streaming, message bubbles, typing indicator, and cursor-based message pagination
+- [P03-08] iOS Memory List with per-character and global Mem0 memories, segment picker, and swipe-to-delete
 
 ---
 

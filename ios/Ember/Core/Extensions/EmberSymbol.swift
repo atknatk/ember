@@ -31,4 +31,10 @@ enum EmberSymbol {
     static let microphoneSlash = "mic.slash.fill"
     static let waveform = "waveform"
     static let stopCircle = "stop.circle.fill"
+
+    // TTS playback
+    static let speaker = "speaker.wave.2"
+    static let speakerFill = "speaker.wave.2.fill"
+    static let audioPlay = "play.fill"
+    static let audioPause = "pause.fill"
 }

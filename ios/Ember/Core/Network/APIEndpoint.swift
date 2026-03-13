@@ -42,6 +42,9 @@ enum APIEndpoint {
     // Speech-to-Text
     case transcribeAudio
 
+    // Text-to-Speech
+    case synthesizeSpeech
+
     // Profile
     case getProfile
     case updateProfile
@@ -99,6 +102,10 @@ enum APIEndpoint {
         case .transcribeAudio:
             return "/api/v1/stt"
 
+        // Text-to-Speech
+        case .synthesizeSpeech:
+            return "/api/v1/tts"
+
         // Profile
         case .getProfile, .updateProfile:
             return "/api/v1/profile"
@@ -125,6 +132,7 @@ enum APIEndpoint {
              .sendMessage, .streamMessage,
              .uploadURL,
              .transcribeAudio,
+             .synthesizeSpeech,
              .completeOnboarding,
              .updateFCMToken:
             return .post

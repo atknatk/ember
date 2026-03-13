@@ -4,8 +4,13 @@ import UIKit
 /// Displays a single chat message bubble.
 /// User messages appear on the right with primary color background.
 /// Assistant messages appear on the left with surface2 background.
+/// AI messages include a "Listen" button for TTS playback.
 struct MessageBubbleView: View {
     let message: ChatMessage
+    var audioPlayer: AudioPlayerManager?
+    var isRequestingTTS: Bool = false
+    var ttsRequestMessageId: String? = nil
+    var onListenTapped: (() -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .bottom, spacing: .emberSpacing8) {
@@ -14,7 +19,7 @@ struct MessageBubbleView: View {
             }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: .emberSpacing4) {
-                // Message content
+                // Message content with optional TTS controls
                 if message.isStreaming && message.content.isEmpty {
                     TypingIndicatorView()
                         .padding(.horizontal, .emberSpacing16)
@@ -22,15 +27,22 @@ struct MessageBubbleView: View {
                         .background(bubbleBackground)
                         .clipShape(bubbleShape)
                 } else {
-                    Text(message.content)
-                        .font(.emberBody)
-                        .foregroundStyle(textColor)
-                        .lineSpacing(4)
-                        .textSelection(.enabled)
-                        .padding(.horizontal, .emberSpacing16)
-                        .padding(.vertical, .emberSpacing12)
-                        .background(bubbleBackground)
-                        .clipShape(bubbleShape)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(message.content)
+                            .font(.emberBody)
+                            .foregroundStyle(textColor)
+                            .lineSpacing(4)
+                            .textSelection(.enabled)
+
+                        // TTS controls for assistant messages
+                        if message.role == .assistant && !message.isStreaming {
+                            ttsSection
+                        }
+                    }
+                    .padding(.horizontal, .emberSpacing16)
+                    .padding(.vertical, .emberSpacing12)
+                    .background(bubbleBackground)
+                    .clipShape(bubbleShape)
                 }
 
                 // Timestamp
@@ -58,6 +70,49 @@ struct MessageBubbleView: View {
         .accessibilityHint("Long press to copy")
         .accessibilityAction(named: "Copy message") {
             UIPasteboard.general.string = message.content
+        }
+    }
+
+    // MARK: - TTS Section
+
+    @ViewBuilder
+    private var ttsSection: some View {
+        if let audioPlayer, audioPlayer.isActiveFor(messageId: message.id) {
+            // Show full audio progress when this message is active
+            AudioProgressView(
+                isPlaying: audioPlayer.isPlaying,
+                isLoading: audioPlayer.isLoading,
+                currentTime: audioPlayer.currentTime,
+                duration: audioPlayer.duration,
+                playbackSpeed: audioPlayer.playbackSpeed,
+                onPlayPause: { onListenTapped?() },
+                onSeek: { time in audioPlayer.seek(to: time) },
+                onCycleSpeed: { audioPlayer.cycleSpeed() }
+            )
+        } else {
+            // Show compact listen button
+            Button {
+                onListenTapped?()
+            } label: {
+                HStack(spacing: .emberSpacing4) {
+                    if isRequestingTTS && ttsRequestMessageId == message.id {
+                        ProgressView()
+                            .tint(Color.emberTextSecondary)
+                            .scaleEffect(0.7)
+                            .frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: EmberSymbol.speaker)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    Text("Listen")
+                        .font(.emberMicro)
+                }
+                .foregroundStyle(Color.emberTextSecondary)
+                .padding(.top, .emberSpacing8)
+            }
+            .disabled(isRequestingTTS)
+            .accessibilityLabel("Listen to message")
+            .accessibilityHint("Converts this message to speech and plays it")
         }
     }
 

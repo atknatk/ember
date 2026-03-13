@@ -98,4 +98,17 @@ final class MockChatService: ChatServiceProtocol, @unchecked Sendable {
         if let error = shouldThrow { throw error }
         return stubbedSTTResponse
     }
+
+    // MARK: - TTS Stubs
+
+    var stubbedTTSResponse: TTSResponse = TTSResponse(audioUrl: "https://s3.example.com/audio.mp3", durationSeconds: 5.0)
+    var synthesizeSpeechCallCount: Int = 0
+    var lastTTSRequest: TTSRequest? = nil
+
+    func synthesizeSpeech(request: TTSRequest) async throws -> TTSResponse {
+        synthesizeSpeechCallCount += 1
+        lastTTSRequest = request
+        if let error = shouldThrow { throw error }
+        return stubbedTTSResponse
+    }
 }

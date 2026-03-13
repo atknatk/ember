@@ -27,6 +27,9 @@ protocol ChatServiceProtocol: Sendable {
 
     /// Sends an audio URL to the STT endpoint for transcription.
     func transcribeAudio(request: STTRequest) async throws -> STTResponse
+
+    /// Requests TTS synthesis and returns the audio URL and duration.
+    func synthesizeSpeech(request: TTSRequest) async throws -> TTSResponse
 }
 
 // MARK: - Chat Service
@@ -90,6 +93,14 @@ final class ChatService: ChatServiceProtocol {
             endpoint: .transcribeAudio,
             body: request,
             responseType: STTResponse.self
+        )
+    }
+
+    func synthesizeSpeech(request: TTSRequest) async throws -> TTSResponse {
+        try await apiClient.request(
+            endpoint: .synthesizeSpeech,
+            body: request,
+            responseType: TTSResponse.self
         )
     }
 }

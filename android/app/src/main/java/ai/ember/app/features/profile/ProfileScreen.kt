@@ -38,6 +38,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +49,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -74,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
+import ai.ember.app.core.ui.components.ProfileSkeletonLoader
 import ai.ember.app.core.ui.theme.EmberBackground
 import ai.ember.app.core.ui.theme.EmberError
 import ai.ember.app.core.ui.theme.EmberGradientEnd
@@ -148,6 +152,7 @@ fun ProfileScreen(
 
 // -- Success Content --
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SuccessContent(
     state: ProfileUiState.Success,
@@ -169,65 +174,71 @@ private fun SuccessContent(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+    PullToRefreshBox(
+        isRefreshing = state.isSaving,
+        onRefresh = { viewModel.loadProfile() },
+        modifier = modifier.fillMaxSize(),
     ) {
-        // Screen title
-        Text(
-            text = stringResource(R.string.profile_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(
-                start = EmberSpacing.lg,
-                end = EmberSpacing.lg,
-                top = EmberSpacing.md,
-                bottom = EmberSpacing.xs,
-            ),
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            // Screen title
+            Text(
+                text = stringResource(R.string.profile_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(
+                    start = EmberSpacing.lg,
+                    end = EmberSpacing.lg,
+                    top = EmberSpacing.md,
+                    bottom = EmberSpacing.xs,
+                ),
+            )
 
-        Spacer(Modifier.height(EmberSpacing.md))
+            Spacer(Modifier.height(EmberSpacing.md))
 
-        // Profile Header
-        ProfileHeader(
-            profile = state.profile,
-            isEditingName = state.isEditingName,
-            editedName = state.editedName,
-            isSaving = state.isSaving,
-            isUploadingAvatar = state.isUploadingAvatar,
-            onAvatarClick = {
-                photoPickerLauncher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                )
-            },
-            onStartEditName = viewModel::startEditingName,
-            onCancelEditName = viewModel::cancelEditingName,
-            onNameChanged = viewModel::onNameChanged,
-            onSaveName = viewModel::saveName,
-        )
+            // Profile Header
+            ProfileHeader(
+                profile = state.profile,
+                isEditingName = state.isEditingName,
+                editedName = state.editedName,
+                isSaving = state.isSaving,
+                isUploadingAvatar = state.isUploadingAvatar,
+                onAvatarClick = {
+                    photoPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                onStartEditName = viewModel::startEditingName,
+                onCancelEditName = viewModel::cancelEditingName,
+                onNameChanged = viewModel::onNameChanged,
+                onSaveName = viewModel::saveName,
+            )
 
-        Spacer(Modifier.height(EmberSpacing.xl))
+            Spacer(Modifier.height(EmberSpacing.xl))
 
-        // Preferences Section
-        PreferencesSection(
-            profile = state.profile,
-            characters = state.characters,
-            notificationPreferences = state.notificationPreferences,
-            onTimezoneClick = viewModel::showTimezonePicker,
-            onLanguageChanged = viewModel::updateLanguage,
-            onNotificationChanged = viewModel::updateNotificationPreference,
-        )
+            // Preferences Section
+            PreferencesSection(
+                profile = state.profile,
+                characters = state.characters,
+                notificationPreferences = state.notificationPreferences,
+                onTimezoneClick = viewModel::showTimezonePicker,
+                onLanguageChanged = viewModel::updateLanguage,
+                onNotificationChanged = viewModel::updateNotificationPreference,
+            )
 
-        Spacer(Modifier.height(EmberSpacing.xl))
+            Spacer(Modifier.height(EmberSpacing.xl))
 
-        // Account Section
-        AccountSection(
-            onSignOut = viewModel::signOut,
-            onDeleteAccount = viewModel::showDeleteConfirmation,
-        )
+            // Account Section
+            AccountSection(
+                onSignOut = viewModel::signOut,
+                onDeleteAccount = viewModel::showDeleteConfirmation,
+            )
 
-        Spacer(Modifier.height(EmberSpacing.xxl))
+            Spacer(Modifier.height(EmberSpacing.xxl))
+        }
     }
 
     // Timezone picker dialog
@@ -275,10 +286,16 @@ private fun ProfileHeader(
             .padding(horizontal = EmberSpacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Avatar
+        // Avatar with shadow
         Box(
             modifier = Modifier
                 .size(80.dp)
+                .shadow(
+                    elevation = AVATAR_SHADOW_ELEVATION,
+                    shape = CircleShape,
+                    ambientColor = EmberPrimary.copy(alpha = AVATAR_SHADOW_ALPHA),
+                    spotColor = EmberPrimary.copy(alpha = AVATAR_SHADOW_ALPHA),
+                )
                 .clip(CircleShape)
                 .clickable(onClick = onAvatarClick)
                 .semantics { contentDescription = avatarA11y },
@@ -863,20 +880,13 @@ private fun DeleteConfirmationDialog(
     )
 }
 
-// -- Loading State --
+// -- Loading State (Shimmer Skeleton) --
 
 @Composable
 private fun LoadingState(
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    ProfileSkeletonLoader(modifier = modifier)
 }
 
 // -- Error State --
@@ -927,3 +937,6 @@ private fun ErrorState(
         }
     }
 }
+
+private val AVATAR_SHADOW_ELEVATION = 8.dp
+private const val AVATAR_SHADOW_ALPHA = 0.3f

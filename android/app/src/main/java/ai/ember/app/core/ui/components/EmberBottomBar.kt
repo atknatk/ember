@@ -9,8 +9,11 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import ai.ember.app.core.navigation.BottomTab
 import ai.ember.app.core.ui.theme.EmberPrimary
 import ai.ember.app.core.ui.theme.EmberSurface
@@ -36,7 +39,12 @@ fun EmberBottomBar(
     NavigationBar(
         containerColor = EmberSurface,
         contentColor = EmberTextPrimary,
-        modifier = modifier,
+        modifier = modifier
+            .shadow(
+                elevation = BOTTOM_BAR_SHADOW_ELEVATION,
+                ambientColor = Color.Black.copy(alpha = BOTTOM_BAR_SHADOW_ALPHA),
+                spotColor = Color.Black.copy(alpha = BOTTOM_BAR_SHADOW_ALPHA),
+            ),
     ) {
         BottomTab.entries.forEach { tab ->
             val isSelected = currentRoute == tab.screen.route
@@ -72,3 +80,6 @@ fun EmberBottomBar(
         }
     }
 }
+
+private val BOTTOM_BAR_SHADOW_ELEVATION = 8.dp
+private const val BOTTOM_BAR_SHADOW_ALPHA = 0.3f

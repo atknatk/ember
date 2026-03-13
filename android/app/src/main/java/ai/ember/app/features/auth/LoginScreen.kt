@@ -1,6 +1,10 @@
 package ai.ember.app.features.auth
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -203,7 +208,18 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(EmberSpacing.xl))
 
-        // Sign In button
+        // Sign In button with scale-on-press animation
+        val signInInteractionSource = remember { MutableInteractionSource() }
+        val isSignInPressed by signInInteractionSource.collectIsPressedAsState()
+        val signInScale by animateFloatAsState(
+            targetValue = if (isSignInPressed) BUTTON_PRESSED_SCALE else 1f,
+            animationSpec = spring(
+                dampingRatio = BUTTON_SPRING_DAMPING,
+                stiffness = BUTTON_SPRING_STIFFNESS,
+            ),
+            label = "signInScale",
+        )
+
         Button(
             onClick = {
                 focusManager.clearFocus()
@@ -211,6 +227,7 @@ fun LoginScreen(
                 viewModel.signIn()
             },
             enabled = isFormValid && !isLoading,
+            interactionSource = signInInteractionSource,
             shape = EmberShapes.pill,
             colors = ButtonDefaults.buttonColors(
                 containerColor = EmberPrimary,
@@ -218,7 +235,11 @@ fun LoginScreen(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(EmberSpacing.xxxl),
+                .height(EmberSpacing.xxxl)
+                .graphicsLayer {
+                    scaleX = signInScale
+                    scaleY = signInScale
+                },
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
@@ -269,3 +290,7 @@ internal fun authTextFieldColors() = OutlinedTextFieldDefaults.colors(
     errorBorderColor = MaterialTheme.colorScheme.error,
     errorLabelColor = MaterialTheme.colorScheme.error,
 )
+
+private const val BUTTON_PRESSED_SCALE = 0.85f
+private const val BUTTON_SPRING_DAMPING = 0.6f
+private const val BUTTON_SPRING_STIFFNESS = 800f

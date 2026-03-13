@@ -28,12 +28,21 @@
     <string name="chat_input_placeholder">Message…</string>
     <string name="chat_send_message">Send message</string>
     <string name="chat_attach_photo">Attach photo, coming soon</string>
-    <string name="chat_voice_message">Voice message, coming soon</string>
+    <string name="chat_voice_message">Voice message</string>
     <string name="chat_copy">Copy</string>
     <string name="chat_retry">Retry</string>
     <string name="chat_typing_indicator">AI is typing</string>
     <string name="chat_message_you">You</string>
     <string name="chat_message_a11y">%1$s message: %2$s</string>
+
+    <!-- Voice Recording -->
+    <string name="voice_record">Record voice message</string>
+    <string name="voice_slide_to_cancel">Slide up to cancel</string>
+    <string name="voice_transcribing">Transcribing…</string>
+    <string name="voice_uploading">Uploading audio…</string>
+    <string name="voice_permission_denied">Microphone permission is required to record voice messages</string>
+    <string name="voice_recording_a11y">Recording in progress. %1$s elapsed</string>
+    <string name="voice_cancel_a11y">Cancel recording</string>
 
     <!-- Placeholder Screens -->
     <string name="placeholder_chat">Chat — Coming Soon</string>

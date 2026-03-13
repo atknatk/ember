@@ -1,5 +1,10 @@
 package ai.ember.app.features.chat
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.view.HapticFeedbackConstants
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,6 +39,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -46,10 +54,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
@@ -82,18 +93,55 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val inputText by viewModel.inputText.collectAsStateWithLifecycle()
+    val voiceState by viewModel.voiceState.collectAsStateWithLifecycle()
     val isOnlineState by (networkMonitor?.isOnline ?: remember {
         kotlinx.coroutines.flow.MutableStateFlow(true)
     }).collectAsStateWithLifecycle()
     val isOffline = !isOnlineState
 
+    val context = LocalContext.current
+    val view = LocalView.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Permission launcher for RECORD_AUDIO
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startRecording()
+        }
+    }
+
+    // Show snackbar for voice recording errors
+    LaunchedEffect(voiceState) {
+        if (voiceState is VoiceRecordingState.Error) {
+            val errorMessage = (voiceState as VoiceRecordingState.Error).message
+            snackbarHostState.showSnackbar(
+                message = errorMessage,
+                duration = SnackbarDuration.Short,
+            )
+            viewModel.dismissVoiceError()
+        }
+    }
+
+    // Haptic on transcription complete
+    LaunchedEffect(voiceState) {
+        if (voiceState is VoiceRecordingState.Idle && inputText.isNotEmpty()) {
+            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+        }
+    }
+
     // Cancel SSE stream when leaving the screen
     DisposableEffect(Unit) {
-        onDispose { viewModel.cancelStream() }
+        onDispose {
+            viewModel.cancelStream()
+            viewModel.cancelRecording()
+        }
     }
 
     Scaffold(
         containerColor = EmberBackground,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             ChatTopBar(
                 characterName = when (val state = uiState) {
@@ -128,6 +176,22 @@ fun ChatScreen(
                             onInputChanged = viewModel::onInputChanged,
                             onSend = viewModel::sendMessage,
                             isStreaming = state.isStreaming,
+                            voiceState = voiceState,
+                            onStartRecording = {
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.RECORD_AUDIO,
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                                if (hasPermission) {
+                                    viewModel.startRecording()
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    false
+                                }
+                            },
+                            onStopRecording = viewModel::stopRecording,
+                            onCancelRecording = viewModel::cancelRecording,
                         )
                     }
 

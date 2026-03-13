@@ -60,6 +60,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P05-01] Backend TTS service with ElevenLabs Flash v2.5 primary and AWS Polly fallback, circuit breaker, and S3 audio caching
 - [P05-02] Backend STT endpoint with OpenAI Whisper transcription, S3 audio download, format validation, and confidence scoring
 - [P05-03] iOS voice recording with hold-to-record mic button, waveform animation, S3 upload, and Whisper STT transcription
+- [P05-04] iOS TTS playback with Listen button on AI messages, AVPlayer progress bar, scrubber, and speed control
 
 ---
 

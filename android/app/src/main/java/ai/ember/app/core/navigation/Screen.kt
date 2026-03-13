@@ -18,6 +18,11 @@ sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Memories : Screen("memories")
     data object Profile : Screen("profile")
+    data object Chat : Screen("chat/{characterId}/{characterName}") {
+        fun createRoute(characterId: String, characterName: String): String =
+            "chat/$characterId/$characterName"
+    }
+    data object CreateCharacter : Screen("create_character")
 }
 
 /**

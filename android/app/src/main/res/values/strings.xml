@@ -10,6 +10,22 @@
     <!-- Home Screen -->
     <string name="home_title">Home</string>
     <string name="home_placeholder">Character grid coming soon</string>
+    <string name="home_characters_section">Your Characters</string>
+    <string name="home_add_character">Add Character</string>
+    <string name="home_no_messages_yet">No messages yet</string>
+    <string name="home_empty_title">No characters yet</string>
+    <string name="home_empty_subtitle">Start chatting by adding your first character</string>
+    <string name="home_daily_summary_placeholder">Start a conversation with your companion</string>
+    <string name="home_daily_summary_a11y">Daily summary from %1$s: %2$s</string>
+    <string name="home_daily_summary_empty_a11y">Daily summary: start a conversation</string>
+    <string name="home_retry">Retry</string>
+
+    <string name="home_add_character_a11y">Add a new character</string>
+    <string name="home_new_message">new message</string>
+
+    <!-- Placeholder Screens -->
+    <string name="placeholder_chat">Chat — Coming Soon</string>
+    <string name="placeholder_create_character">Create Character — Coming Soon</string>
 
     <!-- Memories Screen -->
     <string name="memories_title">Memories</string>

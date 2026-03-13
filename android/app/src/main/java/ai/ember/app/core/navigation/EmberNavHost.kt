@@ -2,11 +2,15 @@ package ai.ember.app.core.navigation
 
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -16,10 +20,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import ai.ember.app.core.ui.components.EmberBottomBar
+import ai.ember.app.R
 import ai.ember.app.core.ui.theme.EmberBackground
+import ai.ember.app.core.ui.theme.EmberSpacing
 import ai.ember.app.features.auth.AuthScreen
 import ai.ember.app.features.auth.AuthUiState
 import ai.ember.app.features.auth.AuthViewModel
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import androidx.compose.ui.res.stringResource
 import ai.ember.app.features.home.HomeScreen
 import ai.ember.app.features.memories.MemoriesScreen
 import ai.ember.app.features.onboarding.OnboardingScreen
@@ -122,13 +131,64 @@ fun EmberNavHost() {
                 )
             }
             composable(Screen.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    onNavigateToChat = { characterId, characterName ->
+                        navController.navigate(
+                            Screen.Chat.createRoute(characterId, characterName),
+                        )
+                    },
+                    onNavigateToCreateCharacter = {
+                        navController.navigate(Screen.CreateCharacter.route)
+                    },
+                )
             }
             composable(Screen.Memories.route) {
                 MemoriesScreen()
             }
             composable(Screen.Profile.route) {
                 ProfileScreen()
+            }
+            composable(
+                route = Screen.Chat.route,
+                arguments = listOf(
+                    navArgument("characterId") { type = NavType.StringType },
+                    navArgument("characterName") { type = NavType.StringType },
+                ),
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+            ) {
+                // Chat screen placeholder — will be implemented in a future feature
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(EmberSpacing.lg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.placeholder_chat),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+            }
+            composable(
+                route = Screen.CreateCharacter.route,
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+            ) {
+                // Create character placeholder — will be implemented in a future feature
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(EmberSpacing.lg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.placeholder_create_character),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
             }
         }
     }

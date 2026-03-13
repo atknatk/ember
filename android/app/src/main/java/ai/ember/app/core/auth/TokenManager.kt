@@ -76,10 +76,21 @@ class TokenManager @Inject constructor(
     val hasCompletedOnboarding: Boolean
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
 
+    /** Saves the user's display name. */
+    fun saveUserName(name: String) {
+        prefs.edit()
+            .putString(KEY_USER_NAME, name)
+            .apply()
+    }
+
+    /** Returns the stored user display name, or empty string. */
+    fun getUserName(): String = prefs.getString(KEY_USER_NAME, "") ?: ""
+
     companion object {
         private const val PREFS_FILE_NAME = "ember_auth_prefs"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_USER_NAME = "user_name"
     }
 }

@@ -42,6 +42,18 @@
     <!-- Memories Screen -->
     <string name="memories_title">Memories</string>
     <string name="memories_placeholder">Memory list coming soon</string>
+    <string name="memories_segment_global">Global</string>
+    <string name="memories_global_a11y">Global memories</string>
+    <string name="memories_character_a11y">%1$s memories</string>
+    <string name="memories_empty_title">No memories yet</string>
+    <string name="memories_empty_subtitle">Start chatting and I\'ll remember what matters.</string>
+    <string name="memories_retry">Retry</string>
+    <string name="memories_delete_title">Delete Memory?</string>
+    <string name="memories_delete_message">This memory will be permanently removed. This action cannot be undone.</string>
+    <string name="memories_delete_confirm">Delete</string>
+    <string name="memories_delete_cancel">Cancel</string>
+    <string name="memories_delete_a11y">Delete memory</string>
+    <string name="memories_row_a11y_prefix">Memory: </string>
 
     <!-- Profile Screen -->
     <string name="profile_title">Profile</string>

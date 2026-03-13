@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(NetworkMonitor.self) private var networkMonitor
     @State private var viewModel: HomeViewModel
     @State private var hasAppeared: Bool = false
 
@@ -39,16 +40,18 @@ struct HomeView: View {
         .task {
             await viewModel.loadCharacters()
         }
-        .alert("Error", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-            Button("Retry") {
-                Task { await viewModel.loadCharacters() }
+        .overlay(alignment: .top) {
+            VStack(spacing: .emberSpacing4) {
+                OfflineBannerView(isOffline: !networkMonitor.isConnected)
+
+                ErrorBannerView(
+                    error: viewModel.currentError,
+                    onDismiss: { viewModel.dismissError() },
+                    onRetry: { Task { await viewModel.loadCharacters() } }
+                )
             }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
+            .animation(.easeInOut(duration: 0.3), value: viewModel.currentError)
+            .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
         }
     }
 

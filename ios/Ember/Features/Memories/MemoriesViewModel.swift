@@ -18,6 +18,7 @@ final class MemoriesViewModel {
     var isLoading: Bool = false
     var isLoadingCharacters: Bool = false
     var errorMessage: String? = nil
+    var currentError: EmberError? = nil
     var showError: Bool = false
     var memoryToDelete: MemoryItem? = nil
 
@@ -26,6 +27,12 @@ final class MemoriesViewModel {
     var showDeleteConfirmation: Bool {
         get { memoryToDelete != nil }
         set { if !newValue { memoryToDelete = nil } }
+    }
+
+    func dismissError() {
+        errorMessage = nil
+        currentError = nil
+        showError = false
     }
 
     // MARK: - Dependencies
@@ -51,7 +58,9 @@ final class MemoriesViewModel {
             )
             characters = response.characters
         } catch {
-            errorMessage = error.localizedDescription
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
             showError = true
             isLoadingCharacters = false
             return
@@ -90,7 +99,9 @@ final class MemoriesViewModel {
             }
             memories = response.memories
         } catch {
-            errorMessage = error.localizedDescription
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
             showError = true
             HapticManager.notification(.error)
         }
@@ -119,7 +130,9 @@ final class MemoriesViewModel {
             }
             HapticManager.notification(.success)
         } catch {
-            errorMessage = error.localizedDescription
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
             showError = true
             HapticManager.notification(.error)
         }

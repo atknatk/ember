@@ -10,6 +10,7 @@ final class HomeViewModel {
     var isLoading: Bool = false
     var isRefreshing: Bool = false
     var errorMessage: String? = nil
+    var currentError: EmberError? = nil
     var userName: String
 
     // MARK: - Dependencies
@@ -55,11 +56,18 @@ final class HomeViewModel {
 
             await loadLastMessages(for: response.characters)
         } catch {
-            errorMessage = error.localizedDescription
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
         }
 
         isLoading = false
         isRefreshing = false
+    }
+
+    func dismissError() {
+        errorMessage = nil
+        currentError = nil
     }
 
     // MARK: - Private

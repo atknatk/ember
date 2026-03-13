@@ -10,6 +10,7 @@ final class ProfileViewModel {
     var isLoading: Bool = false
     var isSaving: Bool = false
     var errorMessage: String?
+    var currentError: EmberError?
     var showPhotoPicker: Bool = false
     var showTimezonePicker: Bool = false
     var showDeleteConfirmation: Bool = false
@@ -53,7 +54,7 @@ final class ProfileViewModel {
 
             loadNotificationPreferences()
         } catch {
-            errorMessage = error.localizedDescription
+            setError(error)
         }
 
         isLoading = false
@@ -80,7 +81,7 @@ final class ProfileViewModel {
             HapticManager.notification(.success)
             flashSaveSuccess()
         } catch {
-            errorMessage = error.localizedDescription
+            setError(error)
             HapticManager.notification(.error)
         }
 
@@ -101,7 +102,7 @@ final class ProfileViewModel {
             HapticManager.notification(.success)
             flashSaveSuccess()
         } catch {
-            errorMessage = error.localizedDescription
+            setError(error)
             HapticManager.notification(.error)
         }
 
@@ -122,7 +123,7 @@ final class ProfileViewModel {
             HapticManager.notification(.success)
             flashSaveSuccess()
         } catch {
-            errorMessage = error.localizedDescription
+            setError(error)
             HapticManager.notification(.error)
         }
 
@@ -174,7 +175,7 @@ final class ProfileViewModel {
             profile = updated
             HapticManager.notification(.success)
         } catch {
-            errorMessage = error.localizedDescription
+            setError(error)
             HapticManager.notification(.error)
         }
 
@@ -200,7 +201,7 @@ final class ProfileViewModel {
             accountDeleted = true
             HapticManager.notification(.error)
         } catch {
-            errorMessage = error.localizedDescription
+            setError(error)
             HapticManager.notification(.error)
         }
 
@@ -229,7 +230,19 @@ final class ProfileViewModel {
         editedName = ""
     }
 
+    func dismissError() {
+        errorMessage = nil
+        currentError = nil
+    }
+
     // MARK: - Private
+
+    private func setError(_ error: Error) {
+        let emberError = EmberError.from(error)
+        currentError = emberError
+        errorMessage = emberError.errorDescription
+    }
+
 
     private func loadNotificationPreferences() {
         if let stored = UserDefaults.standard.dictionary(forKey: "notification_preferences") as? [String: Bool] {

@@ -114,8 +114,8 @@ class TestInitImports:
     def test_timestamp_mixin_importable_from_models(self) -> None:
         assert TimestampMixin is not None
 
-    def test_all_exports_list_has_nine_entries(self) -> None:
-        """__all__ should contain all 7 models + Base + TimestampMixin."""
+    def test_all_exports_list_has_expected_entries(self) -> None:
+        """__all__ should contain all models + Base + TimestampMixin."""
         import app.models as models_module
 
         assert hasattr(models_module, "__all__")
@@ -123,6 +123,7 @@ class TestInitImports:
             "Base", "TimestampMixin",
             "Profile", "Character", "Conversation", "Message",
             "UserActivity", "Partner", "BodyMeasurement",
+            "ModerationEvent", "UserModerationState",
         }
         assert set(models_module.__all__) == expected
 

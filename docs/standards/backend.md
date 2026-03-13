@@ -967,6 +967,13 @@ class Settings(BaseSettings):
     # Observability — Logging
     log_request_body: bool = False
 
+    # Content Moderation
+    moderation_enabled: bool = True
+    moderation_fail_open: bool = True
+    moderation_abuse_window_hours: int = 24
+    moderation_block_duration_short_minutes: int = 15
+    moderation_block_duration_long_minutes: int = 60
+
     def model_post_init(self, __context: object) -> None:
         if not self.debug and self.aws_secret_name:
             try:

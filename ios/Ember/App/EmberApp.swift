@@ -4,8 +4,8 @@ import SwiftUI
 struct EmberApp: App {
     @State private var router = AppRouter()
     @State private var container = AppContainer()
+    @State private var authViewModel = AuthViewModel()
 
-    @AppStorage("isAuthenticated") private var isAuthenticated = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     init() {
@@ -15,8 +15,12 @@ struct EmberApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if !isAuthenticated {
-                    LoginPlaceholderView()
+                if !authViewModel.isAuthenticated {
+                    if authViewModel.isShowingSignUp {
+                        SignUpView()
+                    } else {
+                        LoginView()
+                    }
                 } else if !hasCompletedOnboarding {
                     OnboardingPlaceholderView()
                 } else {
@@ -25,6 +29,7 @@ struct EmberApp: App {
             }
             .environment(router)
             .environment(container)
+            .environment(authViewModel)
             .preferredColorScheme(.dark)
         }
     }

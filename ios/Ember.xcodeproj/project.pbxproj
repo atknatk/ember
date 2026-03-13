@@ -11,6 +11,7 @@
 		027184A4265AF1CE0BF6A8FC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B34F4F4D9861E63CC69708 /* ProfileView.swift */; };
 		08D28716754270B134C2B86D /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 404C4FD053A1717BE2D3699F /* MarkdownUI */; };
 		0983B49E0ED083083A371866 /* ProfileViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE57CD572D033F9DDE6D4F8 /* ProfileViewModelTests.swift */; };
+		1B2C3D4E5F6A7B8C9D0E1F2A /* ProfileViewModelExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3D4E5F6A7B8C9D0E1F2A3B /* ProfileViewModelExtendedTests.swift */; };
 		0AF4BAD54673E0878F0BC0F6 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9C288A1B6AF5D4219689A57 /* MockURLProtocol.swift */; };
 		0BD77B5E441B2A5EF34A037A /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = B6D64783055B4BA4E4F82429 /* Kingfisher */; };
 		14BA13464C891531AAA561C3 /* SSEClientExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD14C0F89EACA6A1E07C3589 /* SSEClientExtendedTests.swift */; };
@@ -159,6 +160,7 @@
 		97CEE46E146B056782F4C823 /* FontEmberTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontEmberTests.swift; sourceTree = "<group>"; };
 		99556B937307C448900939CD /* APIEndpointExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpointExtendedTests.swift; sourceTree = "<group>"; };
 		9BE57CD572D033F9DDE6D4F8 /* ProfileViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModelTests.swift; sourceTree = "<group>"; };
+		2C3D4E5F6A7B8C9D0E1F2A3B /* ProfileViewModelExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModelExtendedTests.swift; sourceTree = "<group>"; };
 		9C394BC15858663402BF9DAF /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		9DF77159448D8EF4CE15312F /* AuthError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthError.swift; sourceTree = "<group>"; };
 		9F0E68DD7F905A848184196D /* MockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthService.swift; sourceTree = "<group>"; };
@@ -331,6 +333,7 @@
 			isa = PBXGroup;
 			children = (
 				9BE57CD572D033F9DDE6D4F8 /* ProfileViewModelTests.swift */,
+				2C3D4E5F6A7B8C9D0E1F2A3B /* ProfileViewModelExtendedTests.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -758,6 +761,7 @@
 				634AD189F517BDC3F877E3EE /* OnboardingViewModelExtendedTests.swift in Sources */,
 				91699CE297AED86F6515E85F /* OnboardingViewModelTests.swift in Sources */,
 				0983B49E0ED083083A371866 /* ProfileViewModelTests.swift in Sources */,
+				1B2C3D4E5F6A7B8C9D0E1F2A /* ProfileViewModelExtendedTests.swift in Sources */,
 				14BA13464C891531AAA561C3 /* SSEClientExtendedTests.swift in Sources */,
 				646AB90D9519FA1958F818E2 /* SSEClientTests.swift in Sources */,
 			);

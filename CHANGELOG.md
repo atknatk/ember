@@ -46,6 +46,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P03-07] iOS Chat View with SSE streaming, message bubbles, typing indicator, and cursor-based message pagination
 - [P03-08] iOS Memory List with per-character and global Mem0 memories, segment picker, and swipe-to-delete
 - [P03-09] iOS Profile View with user info, preferences, notification toggles, sign out, and account deletion
+- [P03-10] iOS design polish with shimmer skeletons, card shadows, scale button style, pull-to-refresh, and micro-interactions
 
 ---
 

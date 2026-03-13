@@ -73,6 +73,17 @@ final class ChatViewModel {
     var currentError: EmberError? = nil
     var characterName: String
 
+    // MARK: - TTS Playback State
+
+    /// Audio player for TTS playback. Shared across all message bubbles.
+    let audioPlayer = AudioPlayerManager()
+
+    /// Whether a TTS request is in progress.
+    var isRequestingTTS: Bool = false
+
+    /// The message ID for which TTS is currently being requested.
+    var ttsRequestMessageId: String? = nil
+
     // MARK: - Voice Recording State
 
     /// The voice recorder instance managing AVAudioRecorder.
@@ -264,6 +275,57 @@ final class ChatViewModel {
         currentError = nil
     }
 
+    // MARK: - TTS Playback
+
+    /// Requests TTS synthesis for a message and plays the resulting audio.
+    /// If the message is already playing, toggles pause/resume instead.
+    func requestTTS(messageId: String, text: String) async {
+        // If audio for this message is already loaded, toggle play/pause
+        if audioPlayer.isActiveFor(messageId: messageId) {
+            if audioPlayer.isPlaying {
+                audioPlayer.pause()
+            } else {
+                audioPlayer.resume()
+            }
+            return
+        }
+
+        guard !isRequestingTTS else { return }
+
+        isRequestingTTS = true
+        ttsRequestMessageId = messageId
+
+        do {
+            let request = TTSRequest(text: text, characterId: characterId)
+            let response = try await service.synthesizeSpeech(request: request)
+
+            guard let audioURL = URL(string: response.audioUrl) else {
+                throw TTSError.invalidAudioURL
+            }
+
+            // If a server-provided duration is available, pre-set it
+            if let serverDuration = response.durationSeconds, serverDuration > 0 {
+                audioPlayer.duration = serverDuration
+            }
+
+            audioPlayer.play(url: audioURL, messageId: messageId)
+            HapticManager.impact(.light)
+        } catch {
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
+            HapticManager.notification(.error)
+        }
+
+        isRequestingTTS = false
+        ttsRequestMessageId = nil
+    }
+
+    /// Stops any currently playing TTS audio.
+    func stopTTS() {
+        audioPlayer.stop()
+    }
+
     // MARK: - Voice Recording
 
     /// Starts a voice recording session. Requests microphone permission on first use.
@@ -397,6 +459,20 @@ final class ChatViewModel {
             return
         }
         messages.removeLast()
+    }
+}
+
+// MARK: - TTS Errors
+
+/// Domain errors specific to the TTS playback flow.
+enum TTSError: LocalizedError {
+    case invalidAudioURL
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidAudioURL:
+            return "Failed to load audio. Please try again."
+        }
     }
 }
 

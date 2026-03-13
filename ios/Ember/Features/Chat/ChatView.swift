@@ -87,6 +87,10 @@ struct ChatView: View {
                 viewModel.cancelRecording()
             }
         }
+        .onDisappear {
+            // Stop TTS playback when leaving the chat screen
+            viewModel.stopTTS()
+        }
     }
 
     // MARK: - Message List
@@ -117,9 +121,22 @@ struct ChatView: View {
                         ForEach(viewModel.chatListItems) { item in
                             switch item {
                             case .message(let message):
-                                MessageBubbleView(message: message)
-                                    .id(message.id)
-                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                MessageBubbleView(
+                                    message: message,
+                                    audioPlayer: viewModel.audioPlayer,
+                                    isRequestingTTS: viewModel.isRequestingTTS,
+                                    ttsRequestMessageId: viewModel.ttsRequestMessageId,
+                                    onListenTapped: {
+                                        Task {
+                                            await viewModel.requestTTS(
+                                                messageId: message.id,
+                                                text: message.content
+                                            )
+                                        }
+                                    }
+                                )
+                                .id(message.id)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
                             case .dateSeparator(let separator):
                                 DateSeparatorView(date: separator.date)
                                     .id(separator.id)

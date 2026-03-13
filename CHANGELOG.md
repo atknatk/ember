@@ -55,6 +55,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P04-05] Android chat with OkHttp SSE streaming, message bubbles, typing indicator, and cursor-based pagination
 - [P04-06] Android memory list with per-character and global Mem0 memories, segment picker, and swipe-to-delete
 - [P04-07] Android profile with user info, timezone picker, notification toggles, avatar upload, sign out, and account deletion
+- [P04-08] Android design polish with shimmer skeletons, card elevation, scale button effects, and micro-interactions
 
 ---
 

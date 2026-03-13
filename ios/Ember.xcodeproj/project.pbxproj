@@ -15,6 +15,7 @@
 		1ADECD694A430EE0C3CE77DD /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54B416AE1B440570D54B309A /* AuthViewModel.swift */; };
 		1AF4D00B519F45F4553AFF13 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C69094DE7754280D10B63C5A /* Assets.xcassets */; };
 		1E6307B163C4569AB23DE319 /* CharacterCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A459DCBA87D0471A3D56F25E /* CharacterCardView.swift */; };
+		22C6CD510E9D51FF0842E0E0 /* HomeViewModelExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043381FB0511D95E4E489A23 /* HomeViewModelExtendedTests.swift */; };
 		251BB93CCB0CBA05F9DE9445 /* EmberApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8025AF02E81E240C3ADD4A4 /* EmberApp.swift */; };
 		25DA402A6B0B755FC0158AC1 /* CGFloat+Ember.swift in Sources */ = {isa = PBXBuildFile; fileRef = 385963C8E6567439F1EE8F9F /* CGFloat+Ember.swift */; };
 		25E84BC6E7190948A2D3A22F /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4F9AC06B0C40442E99C7E0 /* AuthModels.swift */; };
@@ -92,6 +93,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		043381FB0511D95E4E489A23 /* HomeViewModelExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelExtendedTests.swift; sourceTree = "<group>"; };
 		0AB2A1DCD60BEE6ECDF317BE /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		0C36E5D731703C92F96B5E5F /* EmberSymbolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmberSymbolTests.swift; sourceTree = "<group>"; };
 		0CBAD21BD849A88E704C9516 /* OnboardingFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlowView.swift; sourceTree = "<group>"; };
@@ -412,6 +414,7 @@
 		D84181B6718F06335261CCAC /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				043381FB0511D95E4E489A23 /* HomeViewModelExtendedTests.swift */,
 				9201A3D0D142F13E3A45D070 /* HomeViewModelTests.swift */,
 			);
 			path = Home;
@@ -637,6 +640,7 @@
 				9AAB3726C67409E8EA3BF342 /* ColorTests.swift in Sources */,
 				5C536B3A8A4D1A6D94ED6F49 /* EmberSymbolTests.swift in Sources */,
 				C695B98E7949A9FFF4BFE81D /* FontEmberTests.swift in Sources */,
+				22C6CD510E9D51FF0842E0E0 /* HomeViewModelExtendedTests.swift in Sources */,
 				E7E038AE9A82DA7D8E2BB110 /* HomeViewModelTests.swift in Sources */,
 				5D0C470895BDC6F60DFC0F11 /* KeychainTokenStoreExtendedTests.swift in Sources */,
 				D7DD62955978C2A635158774 /* KeychainTokenStoreTests.swift in Sources */,

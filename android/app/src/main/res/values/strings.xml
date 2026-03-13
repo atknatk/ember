@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ember</string>
+
+    <!-- Bottom Navigation Tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_memories">Memories</string>
+    <string name="tab_profile">Profile</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">Home</string>
+    <string name="home_placeholder">Character grid coming soon</string>
+
+    <!-- Memories Screen -->
+    <string name="memories_title">Memories</string>
+    <string name="memories_placeholder">Memory list coming soon</string>
+
+    <!-- Profile Screen -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_placeholder">Settings coming soon</string>
+</resources>

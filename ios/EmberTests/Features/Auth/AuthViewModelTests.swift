@@ -247,4 +247,93 @@ struct AuthViewModelTests {
         let vm2 = AuthViewModel(authService: mockAuth2)
         #expect(vm2.isAuthenticated == false)
     }
+
+    // MARK: - P03-05 Error Shake Tests
+
+    @Test("signIn failure sets showErrorShake to true")
+    func signInFailureSetsShake() async {
+        let (vm, mockAuth) = makeViewModel()
+        mockAuth.shouldThrowOnSignIn = AuthError.signInFailed("Invalid credentials")
+        vm.email = "test@ember.ai"
+        vm.password = "wrong"
+
+        await vm.signIn()
+
+        #expect(vm.showErrorShake == true)
+    }
+
+    @Test("signUp failure sets showErrorShake to true")
+    func signUpFailureSetsShake() async {
+        let (vm, mockAuth) = makeViewModel()
+        mockAuth.shouldThrowOnSignUp = AuthError.signUpFailed("Email taken")
+        vm.name = "Test"
+        vm.email = "test@ember.ai"
+        vm.password = "password123"
+        vm.confirmPassword = "password123"
+
+        await vm.signUp()
+
+        #expect(vm.showErrorShake == true)
+    }
+
+    @Test("signIn success does not set showErrorShake")
+    func signInSuccessNoShake() async {
+        let (vm, _) = makeViewModel()
+        vm.email = "test@ember.ai"
+        vm.password = "password123"
+
+        await vm.signIn()
+
+        #expect(vm.showErrorShake == false)
+    }
+
+    // MARK: - P03-05 Email Validation Tests
+
+    @Test("showEmailValidationError with edited email missing @ returns true")
+    func emailValidationErrorMissingAt() {
+        let (vm, _) = makeViewModel()
+        vm.emailHasBeenEdited = true
+        vm.email = "testember.ai"
+
+        #expect(vm.showEmailValidationError == true)
+    }
+
+    @Test("showEmailValidationError with valid email returns false")
+    func emailValidationErrorValidEmail() {
+        let (vm, _) = makeViewModel()
+        vm.emailHasBeenEdited = true
+        vm.email = "test@ember.ai"
+
+        #expect(vm.showEmailValidationError == false)
+    }
+
+    @Test("showEmailValidationError with unedited email returns false")
+    func emailValidationErrorUnedited() {
+        let (vm, _) = makeViewModel()
+        vm.emailHasBeenEdited = false
+        vm.email = "testember.ai"
+
+        #expect(vm.showEmailValidationError == false)
+    }
+
+    @Test("showEmailValidationError with empty email after editing returns false")
+    func emailValidationErrorEmptyAfterEdit() {
+        let (vm, _) = makeViewModel()
+        vm.emailHasBeenEdited = true
+        vm.email = ""
+
+        #expect(vm.showEmailValidationError == false)
+    }
+
+    // MARK: - P03-05 signOut resets emailHasBeenEdited
+
+    @Test("signOut resets emailHasBeenEdited to false")
+    func signOutResetsEmailEdited() async {
+        let (vm, _) = makeViewModel(isAuthenticated: true)
+        vm.emailHasBeenEdited = true
+
+        await vm.signOut()
+
+        #expect(vm.emailHasBeenEdited == false)
+    }
 }

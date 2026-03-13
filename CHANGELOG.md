@@ -41,6 +41,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P03-02] iOS network layer with APIClient, SSE streaming, and 401 retry
 - [P03-03] iOS Cognito auth with Keychain token storage, LoginView, SignUpView, and transparent token refresh
 - [P03-04] iOS onboarding flow with 3-page welcome carousel and 7-question personalization cards that seed Mem0 memories before the first AI conversation
+- [P03-05] iOS auth screen polish: animated Login/SignUp transitions, error shake micro-animation, fade-in on appear, inline email validation, password visibility toggles, and VoiceOver accessibility hints
 
 ---
 

@@ -3,6 +3,10 @@ import SwiftUI
 struct SignUpView: View {
     @Environment(AuthViewModel.self) private var viewModel
     @FocusState private var focusedField: Field?
+    @State private var isAppeared: Bool = false
+    @State private var isPasswordVisible: Bool = false
+    @State private var isConfirmPasswordVisible: Bool = false
+    @State private var shakeOffset: CGFloat = 0
 
     private enum Field: Hashable {
         case name
@@ -45,39 +49,33 @@ struct SignUpView: View {
                         .modifier(AuthTextFieldStyle())
 
                     // Email field
-                    TextField("Email", text: $viewModel.email)
-                        .keyboardType(.emailAddress)
-                        .textContentType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .focused($focusedField, equals: .email)
-                        .submitLabel(.next)
-                        .onSubmit { focusedField = .password }
-                        .accessibilityLabel("Email address")
-                        .modifier(AuthTextFieldStyle())
+                    VStack(alignment: .leading, spacing: .emberSpacing4) {
+                        TextField("Email", text: $viewModel.email)
+                            .keyboardType(.emailAddress)
+                            .textContentType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .focused($focusedField, equals: .email)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .password }
+                            .accessibilityLabel("Email address")
+                            .modifier(AuthTextFieldStyle())
+
+                        if viewModel.showEmailValidationError {
+                            Text("Please enter a valid email")
+                                .font(.emberCaption)
+                                .foregroundStyle(Color.emberError)
+                                .padding(.leading, .emberSpacing4)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
 
                     // Password field
-                    SecureField("Password (8+ characters)", text: $viewModel.password)
-                        .textContentType(.newPassword)
-                        .focused($focusedField, equals: .password)
-                        .submitLabel(.next)
-                        .onSubmit { focusedField = .confirmPassword }
-                        .accessibilityLabel("Password")
-                        .modifier(AuthTextFieldStyle())
+                    passwordField
 
                     // Confirm Password field
                     VStack(alignment: .leading, spacing: .emberSpacing4) {
-                        SecureField("Confirm Password", text: $viewModel.confirmPassword)
-                            .textContentType(.newPassword)
-                            .focused($focusedField, equals: .confirmPassword)
-                            .submitLabel(.go)
-                            .onSubmit {
-                                if viewModel.isSignUpFormValid && !viewModel.isLoading {
-                                    Task { await viewModel.signUp() }
-                                }
-                            }
-                            .accessibilityLabel("Confirm Password")
-                            .modifier(AuthTextFieldStyle())
+                        confirmPasswordField
 
                         if viewModel.passwordsDoNotMatch {
                             Text("Passwords do not match")
@@ -115,6 +113,8 @@ struct SignUpView: View {
                 }
                 .disabled(!viewModel.isSignUpFormValid || viewModel.isLoading)
                 .accessibilityLabel("Create Account")
+                .accessibilityHint("Double tap to create your account")
+                .offset(x: shakeOffset)
                 .padding(.horizontal, .emberSpacing20)
 
                 // Sign In link
@@ -125,6 +125,23 @@ struct SignUpView: View {
         .scrollDismissesKeyboard(.interactively)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.emberBackground.ignoresSafeArea())
+        .opacity(isAppeared ? 1 : 0)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.3)) {
+                isAppeared = true
+            }
+        }
+        .onChange(of: focusedField) { oldValue, _ in
+            if oldValue == .email {
+                viewModel.emailHasBeenEdited = true
+            }
+        }
+        .onChange(of: viewModel.showErrorShake) { _, newValue in
+            if newValue {
+                performShakeAnimation()
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: viewModel.showEmailValidationError)
         .alert("Error", isPresented: Binding(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.clearError() } }
@@ -152,6 +169,74 @@ struct SignUpView: View {
     }
 
     @ViewBuilder
+    private var passwordField: some View {
+        ZStack(alignment: .trailing) {
+            Group {
+                if isPasswordVisible {
+                    TextField("Password (8+ characters)", text: Bindable(viewModel).password)
+                        .textContentType(.newPassword)
+                } else {
+                    SecureField("Password (8+ characters)", text: Bindable(viewModel).password)
+                        .textContentType(.newPassword)
+                }
+            }
+            .focused($focusedField, equals: .password)
+            .submitLabel(.next)
+            .onSubmit { focusedField = .confirmPassword }
+            .accessibilityLabel("Password")
+            .modifier(AuthTextFieldStyle())
+
+            Button {
+                isPasswordVisible.toggle()
+            } label: {
+                Image(systemName: isPasswordVisible ? "eye.slash.fill" : "eye.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color.emberTextSecondary)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel("Toggle password visibility")
+            .accessibilityHint(isPasswordVisible ? "Double tap to hide password" : "Double tap to show password")
+            .padding(.trailing, .emberSpacing8)
+        }
+    }
+
+    @ViewBuilder
+    private var confirmPasswordField: some View {
+        ZStack(alignment: .trailing) {
+            Group {
+                if isConfirmPasswordVisible {
+                    TextField("Confirm Password", text: Bindable(viewModel).confirmPassword)
+                        .textContentType(.newPassword)
+                } else {
+                    SecureField("Confirm Password", text: Bindable(viewModel).confirmPassword)
+                        .textContentType(.newPassword)
+                }
+            }
+            .focused($focusedField, equals: .confirmPassword)
+            .submitLabel(.go)
+            .onSubmit {
+                if viewModel.isSignUpFormValid && !viewModel.isLoading {
+                    Task { await viewModel.signUp() }
+                }
+            }
+            .accessibilityLabel("Confirm Password")
+            .modifier(AuthTextFieldStyle())
+
+            Button {
+                isConfirmPasswordVisible.toggle()
+            } label: {
+                Image(systemName: isConfirmPasswordVisible ? "eye.slash.fill" : "eye.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color.emberTextSecondary)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel("Toggle confirm password visibility")
+            .accessibilityHint(isConfirmPasswordVisible ? "Double tap to hide password" : "Double tap to show password")
+            .padding(.trailing, .emberSpacing8)
+        }
+    }
+
+    @ViewBuilder
     private var signInLink: some View {
         Button {
             viewModel.isShowingSignUp = false
@@ -165,5 +250,29 @@ struct SignUpView: View {
             .font(.emberSecondary)
         }
         .accessibilityLabel("Sign In")
+        .accessibilityHint("Double tap to navigate to sign in")
+    }
+
+    // MARK: - Animations
+
+    private func performShakeAnimation() {
+        withAnimation(.spring(response: 0.1, dampingFraction: 0.2)) {
+            shakeOffset = -8
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.spring(response: 0.1, dampingFraction: 0.2)) {
+                shakeOffset = 8
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(response: 0.1, dampingFraction: 0.2)) {
+                shakeOffset = -8
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 0.1, dampingFraction: 0.5)) {
+                shakeOffset = 0
+            }
+        }
     }
 }

@@ -16,6 +16,8 @@ final class AuthViewModel {
     var errorMessage: String? = nil
     var isShowingSignUp: Bool = false
     var isAuthenticated: Bool = false
+    var showErrorShake: Bool = false
+    var emailHasBeenEdited: Bool = false
 
     // MARK: - Computed Validation
 
@@ -35,6 +37,10 @@ final class AuthViewModel {
 
     var passwordsDoNotMatch: Bool {
         !confirmPassword.isEmpty && confirmPassword != password
+    }
+
+    var showEmailValidationError: Bool {
+        emailHasBeenEdited && !email.isEmpty && !email.contains("@")
     }
 
     // MARK: - Dependencies
@@ -61,6 +67,7 @@ final class AuthViewModel {
         } catch {
             errorMessage = error.localizedDescription
             HapticManager.notification(.error)
+            triggerErrorShake()
         }
 
         isLoading = false
@@ -84,6 +91,7 @@ final class AuthViewModel {
         } catch {
             errorMessage = error.localizedDescription
             HapticManager.notification(.error)
+            triggerErrorShake()
         }
 
         isLoading = false
@@ -99,9 +107,21 @@ final class AuthViewModel {
         confirmPassword = ""
         errorMessage = nil
         isShowingSignUp = false
+        emailHasBeenEdited = false
+        showErrorShake = false
     }
 
     func clearError() {
         errorMessage = nil
+    }
+
+    // MARK: - Private Helpers
+
+    private func triggerErrorShake() {
+        showErrorShake = true
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            showErrorShake = false
+        }
     }
 }

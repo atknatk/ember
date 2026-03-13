@@ -10,8 +10,8 @@ import javax.inject.Singleton
 /**
  * Hilt module providing Chat screen dependencies.
  *
- * Provides [ChatApi] via Retrofit.
- * [ChatRepository] is constructor-injected via @Inject.
+ * Provides [ChatApi] and [VoiceApi] via Retrofit.
+ * [ChatRepository] and [VoiceRecorder] are constructor-injected via @Inject.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -21,4 +21,9 @@ object ChatModule {
     @Singleton
     fun provideChatApi(retrofit: Retrofit): ChatApi =
         retrofit.create(ChatApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideVoiceApi(retrofit: Retrofit): VoiceApi =
+        retrofit.create(VoiceApi::class.java)
 }

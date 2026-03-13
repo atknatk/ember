@@ -27,6 +27,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
+    private val voiceRecorder: VoiceRecorder,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -38,6 +39,9 @@ class ChatViewModel @Inject constructor(
 
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
+
+    /** Voice recording state — separate from chat UI state. */
+    val voiceState: StateFlow<VoiceRecordingState> = voiceRecorder.state
 
     private var streamJob: Job? = null
 
@@ -179,6 +183,83 @@ class ChatViewModel @Inject constructor(
         if (state.isStreaming) {
             _uiState.value = state.copy(isStreaming = false)
         }
+    }
+
+    // -- Voice Recording --
+
+    /**
+     * Starts voice recording via [VoiceRecorder].
+     *
+     * @return true if recording started, false if permission or recorder error.
+     */
+    fun startRecording(): Boolean {
+        return voiceRecorder.start(viewModelScope)
+    }
+
+    /**
+     * Stops voice recording and triggers the upload + STT transcription pipeline.
+     *
+     * Flow: stop recording -> get upload URL -> upload file -> transcribe -> set input text.
+     */
+    fun stopRecording() {
+        voiceRecorder.stop()
+        val file = voiceRecorder.outputFile ?: run {
+            voiceRecorder.updateState(
+                VoiceRecordingState.Error("Recording file not found."),
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            voiceRecorder.updateState(VoiceRecordingState.Uploading)
+
+            // Step 1: Get presigned upload URL
+            val uploadUrlResult = chatRepository.getUploadUrl(file.name)
+            val uploadResponse = uploadUrlResult.getOrElse { e ->
+                voiceRecorder.updateState(
+                    VoiceRecordingState.Error(e.message ?: "Failed to get upload URL."),
+                )
+                return@launch
+            }
+
+            // Step 2: Upload audio file to S3
+            val uploadResult = chatRepository.uploadAudioFile(uploadResponse.uploadUrl, file)
+            uploadResult.onFailure { e ->
+                voiceRecorder.updateState(
+                    VoiceRecordingState.Error(e.message ?: "Upload failed."),
+                )
+                return@launch
+            }
+
+            voiceRecorder.updateState(VoiceRecordingState.Transcribing)
+
+            // Step 3: Transcribe audio
+            val transcriptResult = chatRepository.transcribeAudio(uploadResponse.fileUrl)
+            transcriptResult.onSuccess { transcript ->
+                _inputText.value = transcript
+                voiceRecorder.reset()
+                // Clean up temp file
+                file.delete()
+            }.onFailure { e ->
+                voiceRecorder.updateState(
+                    VoiceRecordingState.Error(e.message ?: "Transcription failed."),
+                )
+            }
+        }
+    }
+
+    /**
+     * Cancels voice recording and discards the audio file.
+     */
+    fun cancelRecording() {
+        voiceRecorder.cancel()
+    }
+
+    /**
+     * Dismisses a voice recording error and resets to idle.
+     */
+    fun dismissVoiceError() {
+        voiceRecorder.reset()
     }
 
     private fun handleSseEvent(event: SseEvent) {

@@ -1,0 +1,68 @@
+ProfileResponse:
+  type: object
+  required:
+    - id
+    - email
+    - name
+    - timezone
+    - preferred_language
+    - onboarding_completed
+    - subscription_tier
+    - created_at
+  properties:
+    id:
+      type: string
+    email:
+      type: string
+    name:
+      type: string
+    timezone:
+      type: string
+    avatar_url:
+      oneOf:
+        - type: string
+        - type: "null"
+    preferred_language:
+      type: string
+    onboarding_completed:
+      type: boolean
+    subscription_tier:
+      type: string
+    subscription_expires_at:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: "null"
+    created_at:
+      type: string
+      format: date-time
+
+ProfileUpdateRequest:
+  type: object
+  properties:
+    name:
+      oneOf:
+        - type: string
+        - type: "null"
+    timezone:
+      oneOf:
+        - type: string
+        - type: "null"
+    avatar_url:
+      oneOf:
+        - type: string
+        - type: "null"
+    preferred_language:
+      oneOf:
+        - type: string
+        - type: "null"
+
+AccountDeleteRequest:
+  type: object
+  required:
+    - confirmation
+  properties:
+    confirmation:
+      type: string
+      minLength: 1
+      description: Must be exactly "DELETE MY ACCOUNT"

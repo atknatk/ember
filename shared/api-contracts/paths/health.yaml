@@ -1,0 +1,26 @@
+/health:
+  get:
+    operationId: health_check
+    summary: Health check
+    description: >
+      Return application health status, version, and optional dependency status.
+      Without check_dependencies: fast response for ECS probes (no external calls).
+      With check_dependencies=true: probes database, Mem0, and Claude (for dashboards).
+      Also includes circuit breaker status when check_dependencies=true.
+    tags:
+      - health
+    security: []
+    parameters:
+      - name: check_dependencies
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+    responses:
+      "200":
+        description: Health status
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/health.yaml#/HealthResponse"

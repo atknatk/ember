@@ -1,0 +1,187 @@
+/memories:
+  get:
+    operationId: get_global_memories
+    summary: Get global memories
+    description: >
+      Retrieve global (non-character-scoped) memories from Mem0.
+      Returns memories stored without an agent_id, visible to all characters.
+    tags:
+      - memories
+    responses:
+      "200":
+        description: List of global memories
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/memory.yaml#/MemoryListResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+/characters/{character_id}/memories:
+  get:
+    operationId: get_character_memories
+    summary: Get character memories
+    description: Retrieve all memories stored in Mem0 for a specific character.
+    tags:
+      - memories
+    parameters:
+      - name: character_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: List of character memories
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/memory.yaml#/MemoryListResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Not owner
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Character not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+  delete:
+    operationId: delete_all_character_memories
+    summary: Delete all character memories
+    description: >
+      Delete ALL memories for a specific character from Mem0.
+      Only deletes memories scoped to this character's mem0_agent_id.
+      Does not affect global memories.
+    tags:
+      - memories
+    parameters:
+      - name: character_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: All memories deleted (no content)
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Not owner
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Character not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+/characters/{character_id}/memories/{memory_id}:
+  delete:
+    operationId: delete_character_memory
+    summary: Delete a single character memory
+    description: >
+      Delete a single memory from Mem0. Idempotent: returns 204
+      even if the memory_id does not exist in Mem0.
+    tags:
+      - memories
+    parameters:
+      - name: character_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: memory_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      "204":
+        description: Memory deleted (no content)
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Not owner
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Character not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"

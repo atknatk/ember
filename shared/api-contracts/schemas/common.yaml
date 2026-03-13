@@ -1,0 +1,31 @@
+ErrorResponse:
+  type: object
+  required:
+    - detail
+  properties:
+    detail:
+      oneOf:
+        - type: string
+        - type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string
+
+RateLimitError:
+  type: object
+  required:
+    - detail
+  properties:
+    detail:
+      type: string
+      example: "Rate limit exceeded"

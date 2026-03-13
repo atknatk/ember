@@ -1,0 +1,54 @@
+/media/upload-url:
+  post:
+    operationId: create_upload_url
+    summary: Generate a presigned upload URL
+    description: >
+      Generate a presigned S3 PUT URL for the client to upload a file.
+      The client sends a filename, content type, and media type (photo/audio/tts).
+      The backend validates the content type, generates an S3 key, creates a
+      5-minute presigned PUT URL, and returns both the upload URL and the
+      permanent file URL.
+    tags:
+      - media
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/media.yaml#/UploadUrlRequest"
+    responses:
+      "200":
+        description: Presigned URL generated
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/media.yaml#/UploadUrlResponse"
+      "400":
+        description: Unsupported content type
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"

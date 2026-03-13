@@ -1,0 +1,194 @@
+/characters:
+  get:
+    operationId: list_characters
+    summary: List characters
+    description: >
+      List all active characters for the authenticated user.
+      Characters are ordered by last_message_at DESC (NULLS LAST),
+      then by created_at DESC.
+    tags:
+      - characters
+    responses:
+      "200":
+        description: List of characters
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/character.yaml#/CharacterListResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+  post:
+    operationId: create_character
+    summary: Create a character
+    description: >
+      Create a new AI character with an auto-generated system prompt.
+      Auto-creates the corresponding conversation row. Uses Claude Haiku
+      for system prompt generation.
+    tags:
+      - characters
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/character.yaml#/CreateCharacterRequest"
+    responses:
+      "201":
+        description: Character created
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/character.yaml#/CharacterDetail"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+/characters/{character_id}:
+  put:
+    operationId: update_character
+    summary: Update a character
+    description: >
+      Update a character's mutable fields (name, system_prompt, avatar_style).
+      Enforces ownership: the character must belong to the authenticated user.
+    tags:
+      - characters
+    parameters:
+      - name: character_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/character.yaml#/UpdateCharacterRequest"
+    responses:
+      "200":
+        description: Character updated
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/character.yaml#/CharacterDetail"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Not owner
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Character not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+  delete:
+    operationId: delete_character
+    summary: Delete a character
+    description: >
+      Soft-delete a character by setting is_active=false.
+      The default character cannot be deleted and returns 403.
+      Enforces ownership.
+    tags:
+      - characters
+    parameters:
+      - name: character_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Character deleted (no content)
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Cannot delete default character, or not owner
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Character not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"

@@ -1,0 +1,114 @@
+SendMessageRequest:
+  type: object
+  required:
+    - content
+  properties:
+    content:
+      type: string
+      minLength: 1
+      maxLength: 4000
+    media_url:
+      oneOf:
+        - type: string
+          maxLength: 2048
+        - type: "null"
+
+MessageItem:
+  type: object
+  required:
+    - id
+    - role
+    - content
+    - created_at
+  properties:
+    id:
+      type: string
+    role:
+      type: string
+      enum:
+        - user
+        - assistant
+    content:
+      type: string
+    media_url:
+      oneOf:
+        - type: string
+        - type: "null"
+    metadata:
+      oneOf:
+        - type: object
+        - type: "null"
+    created_at:
+      type: string
+      format: date-time
+
+MessageListResponse:
+  type: object
+  required:
+    - items
+    - next_cursor
+    - has_more
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/MessageItem"
+    next_cursor:
+      oneOf:
+        - type: string
+        - type: "null"
+    has_more:
+      type: boolean
+
+# SSE Event schemas (for reference -- not directly used in response schema)
+
+ChunkEvent:
+  type: object
+  required:
+    - type
+    - content
+  properties:
+    type:
+      type: string
+      const: chunk
+    content:
+      type: string
+
+ActionEvent:
+  type: object
+  required:
+    - type
+    - action
+    - payload
+  properties:
+    type:
+      type: string
+      const: action
+    action:
+      type: string
+    payload:
+      type: object
+
+DoneEvent:
+  type: object
+  required:
+    - type
+    - message_id
+  properties:
+    type:
+      type: string
+      const: done
+    message_id:
+      type: string
+
+ErrorEvent:
+  type: object
+  required:
+    - type
+    - message
+  properties:
+    type:
+      type: string
+      const: error
+    message:
+      type: string

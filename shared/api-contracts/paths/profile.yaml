@@ -1,0 +1,123 @@
+/profile:
+  get:
+    operationId: get_profile
+    summary: Get user profile
+    description: Return the authenticated user's profile data.
+    tags:
+      - profile
+    responses:
+      "200":
+        description: Profile data
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/profile.yaml#/ProfileResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+  put:
+    operationId: update_profile
+    summary: Update user profile
+    description: Update mutable profile fields. Only provided fields are changed.
+    tags:
+      - profile
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/profile.yaml#/ProfileUpdateRequest"
+    responses:
+      "200":
+        description: Profile updated
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/profile.yaml#/ProfileResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+
+/profile/account:
+  delete:
+    operationId: delete_account
+    summary: Delete user account
+    description: >
+      GDPR-compliant full account deletion. Requires the confirmation
+      text "DELETE MY ACCOUNT" in the request body. Permanently removes
+      all user data across DB, Mem0, S3, and Cognito.
+    tags:
+      - profile
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/profile.yaml#/AccountDeleteRequest"
+    responses:
+      "204":
+        description: Account deleted (no content)
+      "400":
+        description: Incorrect confirmation text
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"

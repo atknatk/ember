@@ -26,6 +26,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P01-10] S3 presigned URL media upload endpoint with content type validation and filename sanitization
 - [P1.5-01] Per-user rate limiting middleware with configurable limits per endpoint group (chat/write/read)
 - [P1.5-02] Profile CRUD endpoints (GET/PUT profile, DELETE account with GDPR-compliant cascading deletion)
+- [P1.5-03] Observability stack: structured logging (structlog), request ID middleware, Sentry error tracking, external API call timing
 
 ---
 

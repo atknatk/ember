@@ -32,6 +32,7 @@ from app.routes import (
     notifications,
     onboarding,
     profile,
+    tts,
 )
 
 logger = logging.getLogger("ember")
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
             {"name": "onboarding", "description": "Onboarding flow completion"},
             {"name": "notifications", "description": "FCM token management and push notifications"},
             {"name": "profile", "description": "User profile management"},
+            {"name": "tts", "description": "Text-to-speech audio generation"},
         ],
     )
 
@@ -140,6 +142,7 @@ def create_app() -> FastAPI:
     app.include_router(onboarding.router, prefix="/api/v1/onboarding", tags=["onboarding"])
     app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
     app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
+    app.include_router(tts.router, prefix="/api/v1", tags=["tts"])
 
     # Global exception handler
     @app.exception_handler(Exception)

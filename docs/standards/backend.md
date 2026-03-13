@@ -59,7 +59,7 @@ backend/
       notifications.py
       onboarding.py
       profile.py
-      # voice.py — planned for Phase 3
+      tts.py                 # TTS (text-to-speech) endpoint
     services/
       __init__.py
       activity_service.py     # Background user activity upserts
@@ -76,6 +76,7 @@ backend/
       proactive_message_generator.py  # Personalized notification message generation with caching
       onboarding_service.py
       profile_service.py
+      tts_service.py          # TTS with ElevenLabs + Polly fallback
       llm/                   # Multi-provider LLM package
         __init__.py
         provider.py          # LLMProvider ABC
@@ -83,7 +84,7 @@ backend/
         openai_provider.py
         router.py            # LLMRouter singleton
         exceptions.py        # LLMProviderError
-      # voice_service.py — planned for Phase 3
+      # voice_service.py — planned for Phase 12 (real-time voice)
     models/
       __init__.py
       base.py                # DeclarativeBase, TimestampMixin
@@ -103,6 +104,7 @@ backend/
       media.py
       health.py              # Health check response schemas
       profile.py             # Profile CRUD schemas
+      tts.py                 # TTS request/response schemas
     utils/
       __init__.py
       cursor.py              # Cursor encode/decode helpers

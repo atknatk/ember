@@ -1,0 +1,26 @@
+MemoryItem:
+  type: object
+  required:
+    - id
+    - memory
+  properties:
+    id:
+      type: string
+    memory:
+      type: string
+    created_at:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: "null"
+      default: null
+
+MemoryListResponse:
+  type: object
+  required:
+    - memories
+  properties:
+    memories:
+      type: array
+      items:
+        $ref: "#/MemoryItem"

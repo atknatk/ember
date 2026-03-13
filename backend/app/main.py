@@ -43,6 +43,16 @@ def create_app() -> FastAPI:
         title="Ember API",
         version=settings.app_version,
         lifespan=lifespan,
+        openapi_tags=[
+            {"name": "health", "description": "Health check and dependency status"},
+            {"name": "auth", "description": "Authentication (register, login, refresh)"},
+            {"name": "characters", "description": "Character CRUD"},
+            {"name": "chat", "description": "Message sending (SSE) and history"},
+            {"name": "memories", "description": "Mem0 memory retrieval and deletion"},
+            {"name": "media", "description": "S3 presigned URL generation"},
+            {"name": "onboarding", "description": "Onboarding flow completion"},
+            {"name": "profile", "description": "User profile management"},
+        ],
     )
 
     # Middleware registration order: Starlette applies in reverse order.

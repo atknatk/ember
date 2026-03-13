@@ -38,6 +38,16 @@ jobs:
           MEM0_API_KEY: test
           ANTHROPIC_API_KEY: test
 
+      - name: Validate OpenAPI specs
+        run: python scripts/validate_openapi.py
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ember_test
+          COGNITO_USER_POOL_ID: test
+          COGNITO_CLIENT_ID: test
+          AWS_REGION: eu-west-1
+          MEM0_API_KEY: test
+          ANTHROPIC_API_KEY: test
+
     services:
       postgres:
         image: pgvector/pgvector:pg16

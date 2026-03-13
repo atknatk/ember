@@ -1,0 +1,43 @@
+OnboardingAnswer:
+  type: object
+  required:
+    - question_key
+    - answer
+  properties:
+    question_key:
+      type: string
+      enum:
+        - preferred_name
+        - occupation
+        - daily_rhythm
+        - health_goal
+        - stress_management
+        - sleep_schedule
+        - communication_style
+    answer:
+      type: string
+      minLength: 1
+      maxLength: 500
+
+OnboardingRequest:
+  type: object
+  required:
+    - answers
+  properties:
+    answers:
+      type: array
+      items:
+        $ref: "#/OnboardingAnswer"
+      minItems: 7
+      maxItems: 7
+
+OnboardingResponse:
+  type: object
+  required:
+    - onboarding_completed
+    - memories_seeded
+  properties:
+    onboarding_completed:
+      type: boolean
+    memories_seeded:
+      type: integer

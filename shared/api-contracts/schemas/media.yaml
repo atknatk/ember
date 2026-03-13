@@ -1,0 +1,31 @@
+UploadUrlRequest:
+  type: object
+  required:
+    - filename
+    - content_type
+    - type
+  properties:
+    filename:
+      type: string
+      minLength: 1
+      maxLength: 255
+    content_type:
+      type: string
+      minLength: 1
+    type:
+      type: string
+      enum:
+        - photo
+        - audio
+        - tts
+
+UploadUrlResponse:
+  type: object
+  required:
+    - upload_url
+    - file_url
+  properties:
+    upload_url:
+      type: string
+    file_url:
+      type: string

@@ -1,0 +1,112 @@
+CreateCharacterRequest:
+  type: object
+  required:
+    - name
+    - template
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    template:
+      type: string
+    description:
+      oneOf:
+        - type: string
+          maxLength: 1000
+        - type: "null"
+
+UpdateCharacterRequest:
+  type: object
+  properties:
+    name:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 100
+        - type: "null"
+    system_prompt:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 10000
+        - type: "null"
+    avatar_style:
+      oneOf:
+        - type: string
+          maxLength: 50
+        - type: "null"
+
+CharacterListItem:
+  type: object
+  required:
+    - id
+    - name
+    - template
+    - avatar_style
+    - is_default
+    - created_at
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    template:
+      type: string
+    description:
+      oneOf:
+        - type: string
+        - type: "null"
+    avatar_style:
+      type: string
+    is_default:
+      type: boolean
+    last_message_at:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: "null"
+    created_at:
+      type: string
+      format: date-time
+
+CharacterListResponse:
+  type: object
+  required:
+    - characters
+  properties:
+    characters:
+      type: array
+      items:
+        $ref: "#/CharacterListItem"
+
+CharacterDetail:
+  type: object
+  required:
+    - id
+    - name
+    - template
+    - system_prompt
+    - avatar_style
+    - is_default
+    - created_at
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    template:
+      type: string
+    description:
+      oneOf:
+        - type: string
+        - type: "null"
+    system_prompt:
+      type: string
+    avatar_style:
+      type: string
+    is_default:
+      type: boolean
+    created_at:
+      type: string
+      format: date-time

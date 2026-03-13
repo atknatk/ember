@@ -1,0 +1,81 @@
+openapi: "3.1.0"
+info:
+  title: Ember API
+  version: "1.0.0"
+  description: >
+    REST API for the Ember AI companion app. All endpoints are under /api/v1/.
+    Authentication uses AWS Cognito JWTs (Bearer token).
+  contact:
+    name: Ember Engineering
+
+servers:
+  - url: https://api.ember.com/api/v1
+    description: Production
+  - url: http://localhost:8000/api/v1
+    description: Local development
+
+tags:
+  - name: health
+    description: Health check and dependency status
+  - name: auth
+    description: Authentication (register, login, refresh)
+  - name: characters
+    description: Character CRUD
+  - name: chat
+    description: Message sending (SSE) and history
+  - name: memories
+    description: Mem0 memory retrieval and deletion
+  - name: media
+    description: S3 presigned URL generation
+  - name: onboarding
+    description: Onboarding flow completion
+  - name: profile
+    description: User profile management
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: AWS Cognito ID token
+
+paths:
+  /health:
+    $ref: "paths/health.yaml#/~1health"
+
+  /auth/register:
+    $ref: "paths/auth.yaml#/~1auth~1register"
+  /auth/login:
+    $ref: "paths/auth.yaml#/~1auth~1login"
+  /auth/refresh:
+    $ref: "paths/auth.yaml#/~1auth~1refresh"
+
+  /characters:
+    $ref: "paths/characters.yaml#/~1characters"
+  /characters/{character_id}:
+    $ref: "paths/characters.yaml#/~1characters~1{character_id}"
+
+  /characters/{character_id}/messages:
+    $ref: "paths/chat.yaml#/~1characters~1{character_id}~1messages"
+
+  /memories:
+    $ref: "paths/memories.yaml#/~1memories"
+  /characters/{character_id}/memories:
+    $ref: "paths/memories.yaml#/~1characters~1{character_id}~1memories"
+  /characters/{character_id}/memories/{memory_id}:
+    $ref: "paths/memories.yaml#/~1characters~1{character_id}~1memories~1{memory_id}"
+
+  /media/upload-url:
+    $ref: "paths/media.yaml#/~1media~1upload-url"
+
+  /onboarding/complete:
+    $ref: "paths/onboarding.yaml#/~1onboarding~1complete"
+
+  /profile:
+    $ref: "paths/profile.yaml#/~1profile"
+  /profile/account:
+    $ref: "paths/profile.yaml#/~1profile~1account"

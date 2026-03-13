@@ -1,0 +1,95 @@
+RegisterRequest:
+  type: object
+  required:
+    - email
+    - password
+    - name
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 8
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+
+LoginRequest:
+  type: object
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 1
+
+RefreshRequest:
+  type: object
+  required:
+    - refresh_token
+  properties:
+    refresh_token:
+      type: string
+      minLength: 1
+
+AuthResponse:
+  type: object
+  required:
+    - token
+    - refresh_token
+    - user
+  properties:
+    token:
+      type: string
+    refresh_token:
+      type: string
+    user:
+      $ref: "#/UserResponse"
+
+UserResponse:
+  type: object
+  required:
+    - id
+    - email
+    - name
+    - onboarding_completed
+    - subscription_tier
+    - preferred_language
+    - timezone
+    - created_at
+  properties:
+    id:
+      type: string
+    email:
+      type: string
+    name:
+      type: string
+    onboarding_completed:
+      type: boolean
+    subscription_tier:
+      type: string
+    preferred_language:
+      type: string
+    timezone:
+      type: string
+    avatar_url:
+      oneOf:
+        - type: string
+        - type: "null"
+    created_at:
+      type: string
+      format: date-time
+
+RefreshResponse:
+  type: object
+  required:
+    - token
+  properties:
+    token:
+      type: string

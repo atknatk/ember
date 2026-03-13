@@ -1,0 +1,75 @@
+HealthResponse:
+  type: object
+  required:
+    - status
+    - version
+  properties:
+    status:
+      type: string
+      example: "ok"
+    version:
+      type: string
+      example: "1.0.0"
+    dependencies:
+      oneOf:
+        - $ref: "#/DependencyStatus"
+        - type: "null"
+      default: null
+    circuit_breaker:
+      oneOf:
+        - $ref: "#/CircuitBreakerReport"
+        - type: "null"
+      default: null
+
+DependencyStatus:
+  type: object
+  required:
+    - database
+    - mem0
+    - claude
+  properties:
+    database:
+      type: string
+      description: "ok | degraded | unavailable"
+    mem0:
+      type: string
+      description: "ok | degraded | unavailable"
+    claude:
+      type: string
+      description: "ok | degraded | unavailable"
+
+CircuitBreakerReport:
+  type: object
+  required:
+    - mem0
+  properties:
+    mem0:
+      $ref: "#/CircuitBreakerStatus"
+
+CircuitBreakerStatus:
+  type: object
+  required:
+    - state
+    - failure_count
+    - retry_queue_size
+    - cache_entries
+  properties:
+    state:
+      type: string
+      description: "closed | open | half_open"
+    failure_count:
+      type: integer
+    last_failure_at:
+      oneOf:
+        - type: string
+        - type: "null"
+      default: null
+    last_success_at:
+      oneOf:
+        - type: string
+        - type: "null"
+      default: null
+    retry_queue_size:
+      type: integer
+    cache_entries:
+      type: integer

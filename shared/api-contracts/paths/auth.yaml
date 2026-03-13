@@ -1,0 +1,104 @@
+/auth/register:
+  post:
+    operationId: register
+    summary: Register a new user
+    description: >
+      Create a new user account. Registers the user in AWS Cognito,
+      creates a profile row, initialises a default companion character,
+      and returns tokens plus user data.
+    tags:
+      - auth
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/RegisterRequest"
+    responses:
+      "201":
+        description: Account created successfully
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/AuthResponse"
+      "409":
+        description: Email already exists
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+
+/auth/login:
+  post:
+    operationId: login
+    summary: Log in
+    description: Authenticate an existing user and return tokens plus profile.
+    tags:
+      - auth
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/LoginRequest"
+    responses:
+      "200":
+        description: Login successful
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/AuthResponse"
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+
+/auth/refresh:
+  post:
+    operationId: refresh
+    summary: Refresh access token
+    description: Exchange a refresh token for a new access (ID) token.
+    tags:
+      - auth
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/RefreshRequest"
+    responses:
+      "200":
+        description: Token refreshed
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/RefreshResponse"
+      "401":
+        description: Invalid or expired refresh token
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"

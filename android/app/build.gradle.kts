@@ -102,6 +102,9 @@ dependencies {
     // Animation
     implementation(libs.lottie.compose)
 
+    // Media3 (ExoPlayer)
+    implementation(libs.media3.exoplayer)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

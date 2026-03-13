@@ -44,6 +44,16 @@
     <string name="voice_recording_a11y">Recording in progress. %1$s elapsed</string>
     <string name="voice_cancel_a11y">Cancel recording</string>
 
+    <!-- TTS Playback -->
+    <string name="tts_listen">Listen</string>
+    <string name="tts_pause">Pause</string>
+    <string name="tts_resume">Resume</string>
+    <string name="tts_stop">Stop</string>
+    <string name="tts_speed_label">Playback speed %1$s</string>
+    <string name="tts_loading">Loading audio…</string>
+    <string name="tts_error">Could not play audio</string>
+    <string name="tts_progress_a11y">Audio playback at %1$s of %2$s</string>
+
     <!-- Placeholder Screens -->
     <string name="placeholder_chat">Chat — Coming Soon</string>
     <string name="placeholder_create_character">Create Character — Coming Soon</string>

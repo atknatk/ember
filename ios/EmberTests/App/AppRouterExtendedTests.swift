@@ -20,7 +20,7 @@ struct AppRouterExtendedTests {
     @Test("push .chat increases path count")
     func pushChatRoute() {
         let router = AppRouter()
-        router.push(.chat(characterId: "char-emma"))
+        router.push(.chat(characterId: "char-emma", characterName: "Emma"))
         #expect(router.path.count == 1)
     }
 
@@ -51,7 +51,7 @@ struct AppRouterExtendedTests {
     func pushMultipleIncrements() {
         let router = AppRouter()
 
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
         #expect(router.path.count == 1)
 
         router.push(.settings)
@@ -69,7 +69,7 @@ struct AppRouterExtendedTests {
     @Test("each pop decrements count by exactly 1")
     func eachPopDecrementsOne() {
         let router = AppRouter()
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
         router.push(.settings)
         router.push(.memoryList(characterId: "c1"))
 
@@ -86,7 +86,7 @@ struct AppRouterExtendedTests {
     @Test("pop after popToRoot does not crash")
     func popAfterPopToRootDoesNotCrash() {
         let router = AppRouter()
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
         router.push(.settings)
 
         router.popToRoot()
@@ -114,7 +114,7 @@ struct AppRouterExtendedTests {
     @Test("calling popToRoot twice does not crash")
     func popToRootTwiceDoesNotCrash() {
         let router = AppRouter()
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
 
         router.popToRoot()
         router.popToRoot()  // guard ensures this is a no-op
@@ -128,7 +128,7 @@ struct AppRouterExtendedTests {
     func interleavedPushAndPop() {
         let router = AppRouter()
 
-        router.push(.chat(characterId: "c1"))    // count = 1
+        router.push(.chat(characterId: "c1", characterName: "Test"))    // count = 1
         router.push(.settings)                   // count = 2
         router.pop()                             // count = 1
         router.push(.memoryList(characterId: "c1")) // count = 2
@@ -144,7 +144,7 @@ struct AppRouterExtendedTests {
     @Test("Route cases are Hashable and can be stored in a Set")
     func routeCasesAreHashable() {
         let routes: Set<AppRouter.Route> = [
-            .chat(characterId: "c1"),
+            .chat(characterId: "c1", characterName: "Test"),
             .characterDetail(characterId: "c2"),
             .memoryList(characterId: "c3"),
             .settings,
@@ -154,15 +154,15 @@ struct AppRouterExtendedTests {
 
     @Test("same Route values are equal")
     func sameRouteValuesAreEqual() {
-        let r1 = AppRouter.Route.chat(characterId: "char-emma")
-        let r2 = AppRouter.Route.chat(characterId: "char-emma")
+        let r1 = AppRouter.Route.chat(characterId: "char-emma", characterName: "Emma")
+        let r2 = AppRouter.Route.chat(characterId: "char-emma", characterName: "Emma")
         #expect(r1 == r2)
     }
 
     @Test("different characterIds produce different chat Route values")
     func differentCharacterIdProducesDifferentRoutes() {
-        let r1 = AppRouter.Route.chat(characterId: "char-emma")
-        let r2 = AppRouter.Route.chat(characterId: "char-luna")
+        let r1 = AppRouter.Route.chat(characterId: "char-emma", characterName: "Emma")
+        let r2 = AppRouter.Route.chat(characterId: "char-luna", characterName: "Luna")
         #expect(r1 != r2)
     }
 

@@ -7,7 +7,7 @@ final class AppRouter {
 
     enum Route: Hashable {
         case characterDetail(characterId: String)
-        case chat(characterId: String)
+        case chat(characterId: String, characterName: String)
         case memoryList(characterId: String)
         case settings
         case createCharacter

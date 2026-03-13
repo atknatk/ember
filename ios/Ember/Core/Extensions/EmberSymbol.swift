@@ -22,4 +22,8 @@ enum EmberSymbol {
     static let templateCareerCoach = "briefcase.fill"
     static let templateCustom = "sparkles"
     static let addCharacter = "plus.circle.fill"
+
+    // Chat-specific icons
+    static let camera = "camera"
+    static let copy = "doc.on.doc"
 }

@@ -8,7 +8,7 @@ struct AppRouterTests {
     func pushAddsRouteToPath() {
         let router = AppRouter()
 
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
 
         #expect(router.path.count == 1)
     }
@@ -16,7 +16,7 @@ struct AppRouterTests {
     @Test("pop removes last route from path")
     func popRemovesLastRoute() {
         let router = AppRouter()
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
         router.push(.settings)
 
         router.pop()
@@ -27,7 +27,7 @@ struct AppRouterTests {
     @Test("popToRoot clears all routes")
     func popToRootClearsPath() {
         let router = AppRouter()
-        router.push(.chat(characterId: "c1"))
+        router.push(.chat(characterId: "c1", characterName: "Test"))
         router.push(.settings)
         router.push(.memoryList(characterId: "c1"))
 

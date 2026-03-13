@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2C3D4E5F6A1B2C3D4E5F6 /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A1B2C3D4E5F6A1 /* ChatInputBar.swift */; };
+		A2B3C4D5E6F7A2B3C4D5E6F7 /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A2B3C4D5E6F7A2 /* ChatService.swift */; };
+		A3B4C5D6E7F8A3B4C5D6E7F8 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C4D5E6F7A3B4C5D6E7F8A3 /* ChatView.swift */; };
+		A4B5C6D7E8F9A4B5C6D7E8F9 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C5D6E7F8A4B5C6D7E8F9A4 /* ChatViewModel.swift */; };
+		A5B6C7D8E9F0A5B6C7D8E9F0 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C6D7E8F9A5B6C7D8E9F0A5 /* MessageBubbleView.swift */; };
+		A6B7C8D9E0F1A6B7C8D9E0F1 /* TypingIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6C7D8E9F0A6B7C8D9E0F1A6 /* TypingIndicatorView.swift */; };
+		AAB1C2D3E4F5AAB1C2D3E4F5 /* DateSeparatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAC1D2E3F4A5BAC1D2E3F4A5 /* DateSeparatorView.swift */; };
+		ABB2C3D4E5F6ABB2C3D4E5F6 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC2D3E4F5A6BBC2D3E4F5A6 /* ChatModels.swift */; };
+		A7B8C9D0E1F2A7B8C9D0E1F2 /* ChatViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A7B8C9D0E1F2A7 /* ChatViewModelTests.swift */; };
+		A8B9C0D1E2F3A8B9C0D1E2F3 /* ChatServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C9D0E1F2A8B9C0D1E2F3A8 /* ChatServiceTests.swift */; };
+		A9B0C1D2E3F4A9B0C1D2E3F4 /* MockChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C0D1E2F3A9B0C1D2E3F4A9 /* MockChatService.swift */; };
 		023055A5149F7A42556C163A /* AuthError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF77159448D8EF4CE15312F /* AuthError.swift */; };
 		08D28716754270B134C2B86D /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 404C4FD053A1717BE2D3699F /* MarkdownUI */; };
 		0AF4BAD54673E0878F0BC0F6 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9C288A1B6AF5D4219689A57 /* MockURLProtocol.swift */; };
@@ -93,6 +104,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B1C2D3E4F5A1B2C3D4E5F6A1 /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6A2B3C4D5E6F7A2 /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+		B3C4D5E6F7A3B4C5D6E7F8A3 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		B4C5D6E7F8A4B5C6D7E8F9A4 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		B5C6D7E8F9A5B6C7D8E9F0A5 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
+		B6C7D8E9F0A6B7C8D9E0F1A6 /* TypingIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingIndicatorView.swift; sourceTree = "<group>"; };
+		BAC1D2E3F4A5BAC1D2E3F4A5 /* DateSeparatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateSeparatorView.swift; sourceTree = "<group>"; };
+		BBC2D3E4F5A6BBC2D3E4F5A6 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A7B8C9D0E1F2A7 /* ChatViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModelTests.swift; sourceTree = "<group>"; };
+		B8C9D0E1F2A8B9C0D1E2F3A8 /* ChatServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatServiceTests.swift; sourceTree = "<group>"; };
+		B9C0D1E2F3A9B0C1D2E3F4A9 /* MockChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockChatService.swift; sourceTree = "<group>"; };
 		043381FB0511D95E4E489A23 /* HomeViewModelExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelExtendedTests.swift; sourceTree = "<group>"; };
 		0AB2A1DCD60BEE6ECDF317BE /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		0C36E5D731703C92F96B5E5F /* EmberSymbolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmberSymbolTests.swift; sourceTree = "<group>"; };
@@ -262,10 +284,20 @@
 			isa = PBXGroup;
 			children = (
 				F7C943E9BD81D247624A0CB6 /* Auth */,
+				C2D3E4F5A2B3C4D5E6F7A2B3 /* Chat */,
 				D84181B6718F06335261CCAC /* Home */,
 				B02BF5137F841D865FE344DB /* Onboarding */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		C2D3E4F5A2B3C4D5E6F7A2B3 /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				B7C8D9E0F1A7B8C9D0E1F2A7 /* ChatViewModelTests.swift */,
+				B8C9D0E1F2A8B9C0D1E2F3A8 /* ChatServiceTests.swift */,
+			);
+			path = Chat;
 			sourceTree = "<group>";
 		};
 		6BB11124961C72720F88A6F2 /* Resources */ = {
@@ -303,6 +335,7 @@
 			children = (
 				5D4F9AC06B0C40442E99C7E0 /* AuthModels.swift */,
 				738EFCA07CE8287CDB6E9F6E /* CharacterModels.swift */,
+				BBC2D3E4F5A6BBC2D3E4F5A6 /* ChatModels.swift */,
 				79A30B3D9C17325C7F85CD9E /* MessageModels.swift */,
 				1E03B69C920D79E1C864A0FB /* OnboardingModels.swift */,
 			);
@@ -324,6 +357,7 @@
 			children = (
 				9C394BC15858663402BF9DAF /* MockAPIClient.swift */,
 				9F0E68DD7F905A848184196D /* MockAuthService.swift */,
+				B9C0D1E2F3A9B0C1D2E3F4A9 /* MockChatService.swift */,
 				F9C288A1B6AF5D4219689A57 /* MockURLProtocol.swift */,
 			);
 			path = Mocks;
@@ -333,12 +367,27 @@
 			isa = PBXGroup;
 			children = (
 				87BDA6FEC383BE3112CB4F9A /* Auth */,
+				C1D2E3F4A1B2C3D4E5F6A1B2 /* Chat */,
 				4A42D6E7275AFC377EC4D007 /* Home */,
 				E87B69B3F570EEF87C40BF64 /* Memories */,
 				EAA1E6A75028FD3B492CC903 /* Onboarding */,
 				B590FE259FD48C81F0FE18AA /* Profile */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		C1D2E3F4A1B2C3D4E5F6A1B2 /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				B1C2D3E4F5A1B2C3D4E5F6A1 /* ChatInputBar.swift */,
+				B2C3D4E5F6A2B3C4D5E6F7A2 /* ChatService.swift */,
+				B3C4D5E6F7A3B4C5D6E7F8A3 /* ChatView.swift */,
+				B4C5D6E7F8A4B5C6D7E8F9A4 /* ChatViewModel.swift */,
+				BAC1D2E3F4A5BAC1D2E3F4A5 /* DateSeparatorView.swift */,
+				B5C6D7E8F9A5B6C7D8E9F0A5 /* MessageBubbleView.swift */,
+				B6C7D8E9F0A6B7C8D9E0F1A6 /* TypingIndicatorView.swift */,
+			);
+			path = Chat;
 			sourceTree = "<group>";
 		};
 		A65AAA63E57C211EBDD3BCE6 /* Auth */ = {
@@ -580,6 +629,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F6A1B2C3D4E5F6 /* ChatInputBar.swift in Sources */,
+				A2B3C4D5E6F7A2B3C4D5E6F7 /* ChatService.swift in Sources */,
+				A3B4C5D6E7F8A3B4C5D6E7F8 /* ChatView.swift in Sources */,
+				A4B5C6D7E8F9A4B5C6D7E8F9 /* ChatViewModel.swift in Sources */,
+				A5B6C7D8E9F0A5B6C7D8E9F0 /* MessageBubbleView.swift in Sources */,
+				A6B7C8D9E0F1A6B7C8D9E0F1 /* TypingIndicatorView.swift in Sources */,
+				AAB1C2D3E4F5AAB1C2D3E4F5 /* DateSeparatorView.swift in Sources */,
+				ABB2C3D4E5F6ABB2C3D4E5F6 /* ChatModels.swift in Sources */,
 				EE7BD8903CF70EC71C818068 /* APIClient.swift in Sources */,
 				B5A1FF4A309324FFDB633E5E /* APIEndpoint.swift in Sources */,
 				BAD9E1B486C3F7D38AA36C9B /* APIError.swift in Sources */,
@@ -622,6 +679,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A7B8C9D0E1F2A7B8C9D0E1F2 /* ChatViewModelTests.swift in Sources */,
+				A8B9C0D1E2F3A8B9C0D1E2F3 /* ChatServiceTests.swift in Sources */,
+				A9B0C1D2E3F4A9B0C1D2E3F4 /* MockChatService.swift in Sources */,
 				62A5E76317BF64356733E026 /* APIClientExtendedTests.swift in Sources */,
 				3C98AD605834C1198381A821 /* APIClientTests.swift in Sources */,
 				77830E74E9F97322B9B1996C /* APIEndpointExtendedTests.swift in Sources */,

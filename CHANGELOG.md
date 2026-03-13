@@ -31,6 +31,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P1.5-05] LLM provider abstraction layer (ADR-006) with Anthropic/OpenAI providers and router
 - [P1.5-06] OpenAPI 3.1 specs for all 19 endpoints with drift detection CI
 - [P1.5-07] Resolve 26 doc-code contradictions and add CI drift detection
+- [P1.5-08] Global memory deletion endpoint with ownership validation
 
 ---
 

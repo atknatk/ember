@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
+import ai.ember.app.core.ui.components.ChatSkeletonLoader
 import ai.ember.app.core.ui.theme.EmberBackground
 import ai.ember.app.core.ui.theme.EmberPrimary
 import ai.ember.app.core.ui.theme.EmberShapes
@@ -292,20 +293,13 @@ private fun ChatContent(
     }
 }
 
-// -- Loading State --
+// -- Loading State (Shimmer Skeleton) --
 
 @Composable
 private fun LoadingState(
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    ChatSkeletonLoader(modifier = modifier)
 }
 
 // -- Error State --

@@ -39,6 +39,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,6 +62,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
 import ai.ember.app.core.models.Character
 import ai.ember.app.core.models.MemoryItem
+import ai.ember.app.core.ui.components.MemoriesSkeletonLoader
+import ai.ember.app.core.ui.components.emberCardShadowLight
 import ai.ember.app.core.ui.theme.EmberError
 import ai.ember.app.core.ui.theme.EmberPrimary
 import ai.ember.app.core.ui.theme.EmberShapes
@@ -93,6 +96,7 @@ fun MemoriesScreen(
             state = state,
             onSegmentSelected = viewModel::selectSegment,
             onDeleteMemory = viewModel::deleteMemory,
+            onRefresh = viewModel::retryLoadMemories,
             onRetry = viewModel::retryLoadMemories,
             modifier = modifier,
         )
@@ -107,68 +111,69 @@ fun MemoriesScreen(
 
 // -- Success Content --
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SuccessContent(
     state: MemoriesUiState.Success,
     onSegmentSelected: (MemorySegment) -> Unit,
     onDeleteMemory: (MemoryItem) -> Unit,
+    onRefresh: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    PullToRefreshBox(
+        isRefreshing = state.isLoadingMemories && state.memories.isNotEmpty(),
+        onRefresh = onRefresh,
         modifier = modifier.fillMaxSize(),
     ) {
-        // Screen title
-        Text(
-            text = stringResource(R.string.memories_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .padding(
-                    start = EmberSpacing.lg,
-                    end = EmberSpacing.lg,
-                    top = EmberSpacing.md,
-                    bottom = EmberSpacing.xs,
-                ),
-        )
+        Column(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            // Screen title
+            Text(
+                text = stringResource(R.string.memories_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .padding(
+                        start = EmberSpacing.lg,
+                        end = EmberSpacing.lg,
+                        top = EmberSpacing.md,
+                        bottom = EmberSpacing.xs,
+                    ),
+            )
 
-        // Character segment picker
-        CharacterPicker(
-            characters = state.characters,
-            selectedSegment = state.selectedSegment,
-            onSegmentSelected = onSegmentSelected,
-        )
+            // Character segment picker
+            CharacterPicker(
+                characters = state.characters,
+                selectedSegment = state.selectedSegment,
+                onSegmentSelected = onSegmentSelected,
+            )
 
-        // Content area
-        when {
-            state.isLoadingMemories -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
+            // Content area
+            when {
+                state.isLoadingMemories && state.memories.isEmpty() -> {
+                    MemoriesSkeletonLoader(
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            }
 
-            state.memories.isEmpty() -> {
-                EmptyMemoriesState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                )
-            }
+                state.memories.isEmpty() -> {
+                    EmptyMemoriesState(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                    )
+                }
 
-            else -> {
-                MemoryList(
-                    memories = state.memories,
-                    deletingMemoryId = state.isDeletingMemoryId,
-                    onDeleteMemory = onDeleteMemory,
-                    modifier = Modifier.weight(1f),
-                )
+                else -> {
+                    MemoryList(
+                        memories = state.memories,
+                        deletingMemoryId = state.isDeletingMemoryId,
+                        onDeleteMemory = onDeleteMemory,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
@@ -287,6 +292,7 @@ private fun MemoryList(
     modifier: Modifier = Modifier,
 ) {
     var memoryToDelete by remember { mutableStateOf<MemoryItem?>(null) }
+    val view = LocalView.current
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -306,6 +312,7 @@ private fun MemoryList(
             val dismissState = rememberSwipeToDismissBoxState(
                 confirmValueChange = { value ->
                     if (value == SwipeToDismissBoxValue.EndToStart) {
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                         memoryToDelete = memory
                         false // Don't auto-dismiss; wait for confirmation
                     } else {
@@ -378,6 +385,7 @@ private fun MemoryRow(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .emberCardShadowLight()
             .semantics { contentDescription = memoryA11y },
         shape = EmberShapes.input,
         colors = CardDefaults.cardColors(containerColor = EmberSurface2),
@@ -516,20 +524,13 @@ private fun EmptyMemoriesState(
     }
 }
 
-// -- Loading State --
+// -- Loading State (Shimmer Skeleton) --
 
 @Composable
 private fun LoadingState(
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    MemoriesSkeletonLoader(modifier = modifier)
 }
 
 // -- Error State --

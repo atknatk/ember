@@ -1,6 +1,10 @@
 package ai.ember.app.features.auth
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,12 +34,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -268,7 +274,18 @@ fun SignUpScreen(
 
         Spacer(modifier = Modifier.height(EmberSpacing.xl))
 
-        // Create Account button
+        // Create Account button with scale-on-press animation
+        val signUpInteractionSource = remember { MutableInteractionSource() }
+        val isSignUpPressed by signUpInteractionSource.collectIsPressedAsState()
+        val signUpScale by animateFloatAsState(
+            targetValue = if (isSignUpPressed) BUTTON_PRESSED_SCALE else 1f,
+            animationSpec = spring(
+                dampingRatio = BUTTON_SPRING_DAMPING,
+                stiffness = BUTTON_SPRING_STIFFNESS,
+            ),
+            label = "signUpScale",
+        )
+
         Button(
             onClick = {
                 focusManager.clearFocus()
@@ -276,6 +293,7 @@ fun SignUpScreen(
                 viewModel.signUp()
             },
             enabled = isFormValid && !isLoading,
+            interactionSource = signUpInteractionSource,
             shape = EmberShapes.pill,
             colors = ButtonDefaults.buttonColors(
                 containerColor = EmberPrimary,
@@ -283,7 +301,11 @@ fun SignUpScreen(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(EmberSpacing.xxxl),
+                .height(EmberSpacing.xxxl)
+                .graphicsLayer {
+                    scaleX = signUpScale
+                    scaleY = signUpScale
+                },
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
@@ -318,3 +340,7 @@ fun SignUpScreen(
         Spacer(modifier = Modifier.height(EmberSpacing.xxl))
     }
 }
+
+private const val BUTTON_PRESSED_SCALE = 0.85f
+private const val BUTTON_SPRING_DAMPING = 0.6f
+private const val BUTTON_SPRING_STIFFNESS = 800f

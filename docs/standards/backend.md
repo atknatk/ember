@@ -45,6 +45,7 @@ backend/
       sentry.py              # Sentry init
     middleware/
       __init__.py
+      activity_tracking.py   # ActivityTrackingMiddleware (user activity upsert)
       rate_limit.py          # RateLimitMiddleware (ASGI)
       request_id.py          # RequestIDMiddleware (X-Request-ID header)
     routes/
@@ -60,6 +61,7 @@ backend/
       # voice.py — planned for Phase 3
     services/
       __init__.py
+      activity_service.py     # Background user activity upserts
       auth_service.py
       character_service.py
       chat_service.py        # Message send + streaming + history

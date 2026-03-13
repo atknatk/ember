@@ -19,6 +19,7 @@ from app.core.logging import setup_logging
 from app.core.rate_limit import RateLimiter
 from app.core.sentry import init_sentry
 from app.db.session import engine
+from app.middleware.activity_tracking import ActivityTrackingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.routes import auth, characters, chat, health, media, memories, onboarding, profile
@@ -57,9 +58,12 @@ def create_app() -> FastAPI:
 
     # Middleware registration order: Starlette applies in reverse order.
     # Last registered = outermost in request flow.
-    # Target flow: RequestID -> CORS -> RateLimit -> route
+    # Target flow: RequestID -> CORS -> RateLimit -> ActivityTracking -> route
 
-    # Rate limiting middleware (innermost)
+    # Activity tracking middleware (innermost — only runs for non-rate-limited requests)
+    app.add_middleware(ActivityTrackingMiddleware)
+
+    # Rate limiting middleware
     rate_limiter = RateLimiter(
         group_limits={
             "chat": settings.rate_limit_chat,

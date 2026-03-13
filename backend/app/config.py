@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    openai_fast_model: str = "gpt-4o-mini"
 
     # Memory
     mem0_api_key: str = ""

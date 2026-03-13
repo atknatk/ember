@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from anthropic import AsyncAnthropic
 from fastapi import HTTPException, status
 from mem0 import MemoryClient
 from sqlalchemy import select, true, tuple_, update
@@ -37,6 +36,8 @@ from app.schemas.chat import (
     MessageItem,
     MessageListResponse,
 )
+from app.services.llm.exceptions import LLMProviderError
+from app.services.llm.router import LLMRouter, get_llm_router
 from app.utils.timing import log_external_call
 
 logger = logging.getLogger("ember")
@@ -110,8 +111,20 @@ def _decode_cursor(cursor: str) -> MessageCursor:
 class ChatService:
     """Encapsulates all messaging business logic."""
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        llm_router: LLMRouter | None = None,
+    ) -> None:
         self.db = db
+        self._llm_router_override = llm_router
+
+    @property
+    def _llm_router(self) -> LLMRouter:
+        """Lazy-initialize the LLM router on first access."""
+        if self._llm_router_override is not None:
+            return self._llm_router_override
+        return get_llm_router()
 
     # ------------------------------------------------------------------
     # Send Message (Streaming)
@@ -207,19 +220,26 @@ class ChatService:
         assistant_message_id = uuid.uuid4()
 
         try:
-            client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-            async with log_external_call("claude", "stream"):
-                async with client.messages.stream(
-                    model=settings.claude_model,
-                    system=system_prompt,
-                    messages=formatted_messages,
-                    max_tokens=2048,
-                ) as stream:
-                    async for text in stream.text_stream:
-                        full_response += text
-                        event = ChunkEvent(content=text)
-                        yield f"data: {event.model_dump_json()}\n\n"
+            provider = self._llm_router.get()
+            async for text in provider.stream(
+                system=system_prompt,
+                messages=formatted_messages,
+                max_tokens=2048,
+            ):
+                full_response += text
+                event = ChunkEvent(content=text)
+                yield f"data: {event.model_dump_json()}\n\n"
 
+        except LLMProviderError:
+            logger.exception(
+                "LLM provider error for character_id=%s",
+                character.id,
+            )
+            error_event = ErrorEvent(
+                message="AI service temporarily unavailable",
+            )
+            yield f"data: {error_event.model_dump_json()}\n\n"
+            return
         except Exception:
             logger.exception(
                 "Claude streaming error for character_id=%s",
@@ -520,14 +540,14 @@ class ChatService:
                 assistant_response=assistant_response,
             )
 
-            client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-            async with log_external_call("claude", "create"):
-                response = await client.messages.create(
-                    model=settings.claude_haiku_model,
-                    max_tokens=256,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-            raw_text = response.content[0].text.strip()
+            provider = self._llm_router.get()
+            raw_text = await provider.complete_fast(
+                system="",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=256,
+                temperature=0.0,
+            )
+            raw_text = raw_text.strip()
 
             if raw_text.lower() == "none":
                 return None

@@ -73,6 +73,7 @@ backend/
       notification_scheduler.py  # APScheduler cron jobs for proactive notifications
       notification_sender.py     # Firebase FCM push notification delivery
       notification_service.py    # High-level notification service (user lookup + send)
+      proactive_message_generator.py  # Personalized notification message generation with caching
       onboarding_service.py
       profile_service.py
       llm/                   # Multi-provider LLM package

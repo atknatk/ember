@@ -1,7 +1,7 @@
 """Notification scheduler — APScheduler-based async cron job.
 
 Runs every N minutes (configurable), evaluates notification triggers per user,
-generates personalized messages via Claude Haiku + Mem0, and sends push
+generates personalized messages via the ProactiveMessageGenerator, and sends push
 notifications via Firebase Cloud Messaging.
 
 A separate hourly job resets the daily notification tracking array at each
@@ -10,7 +10,6 @@ user's local midnight.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -18,7 +17,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from mem0 import MemoryClient
 from sqlalchemy import select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,9 +25,15 @@ from app.db.session import AsyncSessionLocal
 from app.models.character import Character
 from app.models.profile import Profile
 from app.models.user_activity import UserActivity
-from app.services.llm.exceptions import LLMProviderError
-from app.services.llm.router import get_llm_router
 from app.services.notification_sender import SendResult, send_push_notification
+from app.services.proactive_message_generator import (
+    FALLBACK_MESSAGES,  # noqa: F401 — re-exported for backward compatibility
+    MEM0_QUERIES,  # noqa: F401 — re-exported for backward compatibility
+    TONE_MAP,  # noqa: F401 — re-exported for backward compatibility
+    ProactiveMessageGenerator,
+    _get_fallback_message,  # noqa: F401 — re-exported for backward compatibility
+    _search_mem0,  # noqa: F401 — re-exported for backward compatibility
+)
 
 logger = logging.getLogger("ember")
 
@@ -39,38 +43,8 @@ logger = logging.getLogger("ember")
 
 NOTIFICATION_TYPES = ("morning_checkin", "afternoon_nudge", "evening_reflection", "sleep_reminder")
 
-TONE_MAP: dict[str, str] = {
-    "morning_checkin": "warm and energetic",
-    "afternoon_nudge": "curious and light",
-    "evening_reflection": "calm and reflective",
-    "sleep_reminder": "gentle and caring",
-}
-
-MEM0_QUERIES: dict[str, str] = {
-    "morning_checkin": "morning routine, daily plans, habits",
-    "afternoon_nudge": "hobbies, interests, current goals",
-    "evening_reflection": "daily reflection, mood, feelings, evening routine",
-    "sleep_reminder": "sleep schedule, wake up time, rest",
-}
-
-FALLBACK_MESSAGES: dict[str, dict[str, str]] = {
-    "morning_checkin": {
-        "en": "Good morning! How are you feeling today?",
-        "tr": "Gunaydin! Bugun nasil hissediyorsun?",
-    },
-    "afternoon_nudge": {
-        "en": "Hey! Haven't heard from you today. Everything okay?",
-        "tr": "Selam! Bugun konusmadik, her sey yolunda mi?",
-    },
-    "evening_reflection": {
-        "en": "How was your day? I'd love to hear about it.",
-        "tr": "Gunun nasil gecti? Duymak isterim.",
-    },
-    "sleep_reminder": {
-        "en": "It's getting late. Time to wind down?",
-        "tr": "Gec oldu. Yatma vakti geldi mi?",
-    },
-}
+# Module-level generator singleton — cache persists across scheduler cycles.
+_generator = ProactiveMessageGenerator()
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +143,7 @@ async def reset_notifications_sent_today(now_utc: datetime | None = None) -> Non
     """Reset notifications_sent_today for users whose local time crossed midnight.
 
     Runs every hour. Checks each user's timezone and resets the array
-    if their local hour is 0 (midnight hour).
+    if their local hour is 0 (midnight hour). Also clears the generator cache.
 
     Args:
         now_utc: Override for the current UTC time (for testing).
@@ -214,6 +188,9 @@ async def reset_notifications_sent_today(now_utc: datetime | None = None) -> Non
 
     except Exception:
         logger.exception("Midnight reset failed")
+
+    # Clear the generator cache after midnight reset
+    _generator.clear_cache()
 
     logger.info("Midnight reset complete: %d users reset", reset_count)
 
@@ -358,10 +335,9 @@ async def _process_notification(
 
     Steps:
     1. Find user's default character
-    2. Search Mem0 for relevant memories
-    3. Generate personalized message via Claude Haiku
-    4. Send FCM push notification
-    5. Update notifications_sent_today
+    2. Generate personalized message via ProactiveMessageGenerator
+    3. Send FCM push notification
+    4. Update notifications_sent_today
     """
     # 1. Find default character
     result = await db.execute(
@@ -381,8 +357,8 @@ async def _process_notification(
         )
         return
 
-    # 2. Generate message (Mem0 search + Claude Haiku)
-    message = await _generate_notification_message(
+    # 2. Generate message via ProactiveMessageGenerator
+    message = await _generator.generate(
         profile=profile,
         character=default_character,
         notification_type=notification_type,
@@ -440,8 +416,18 @@ async def _process_notification(
 
 
 # ---------------------------------------------------------------------------
-# Message generation
+# Backward compatibility
 # ---------------------------------------------------------------------------
+
+# These symbols are re-exported from proactive_message_generator for backward
+# compatibility. Existing tests and code that import them from this module
+# will continue to work.
+# Note: TONE_MAP, MEM0_QUERIES, FALLBACK_MESSAGES, _get_fallback_message,
+# _search_mem0 are imported at the top of this file from
+# proactive_message_generator.
+
+# Keep _generate_notification_message as a thin wrapper for backward
+# compatibility with existing tests that mock/import it from this module.
 
 
 async def _generate_notification_message(
@@ -450,88 +436,16 @@ async def _generate_notification_message(
     notification_type: str,
     local_now: datetime,
 ) -> str:
-    """Generate a personalized notification message using Mem0 + Claude Haiku.
+    """Generate a personalized notification message.
 
-    Falls back to deterministic messages if either service fails.
+    Thin wrapper around ProactiveMessageGenerator.generate() for backward
+    compatibility. New code should use _generator.generate() directly.
     """
-    language = profile.preferred_language or "en"
-
-    # Search Mem0 for relevant memories
-    memories_text = ""
-    try:
-        mem0_query = MEM0_QUERIES.get(notification_type, "")
-        memories = await asyncio.to_thread(
-            _search_mem0,
-            mem0_user_id=profile.mem0_user_id,
-            agent_id=character.mem0_agent_id,
-            query=mem0_query,
-        )
-        if memories:
-            memories_text = "\n".join(
-                f"- {m.get('memory', '')}" for m in memories if m.get("memory")
-            )
-    except Exception:
-        logger.warning(
-            "Mem0 search failed for notification %s, user_id=%s",
-            notification_type,
-            profile.id,
-        )
-
-    # Generate message via Claude Haiku
-    try:
-        tone = TONE_MAP.get(notification_type, "warm")
-        system_prompt = (
-            f"You are {character.name}, the user's personal AI companion. "
-            f"Generate a short push notification message (1-2 sentences max, "
-            f"under 100 characters if possible). The tone should be {tone}. "
-            f"Write in {language}."
-        )
-
-        user_prompt = (
-            f"Notification type: {notification_type}\n"
-            f"User's name: {profile.name}\n"
-            f"Current local time: {local_now.strftime('%H:%M')}\n"
-            f"Relevant memories:\n{memories_text or 'None'}\n\n"
-            f"Generate a warm, personalized notification message. "
-            f"Do not use quotes. Do not include emoji."
-        )
-
-        llm = get_llm_router().get()
-        message = await llm.complete_fast(
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
-            max_tokens=150,
-            temperature=0.7,
-        )
-        return message.strip()
-
-    except (LLMProviderError, Exception):
-        logger.warning(
-            "Claude Haiku failed for notification %s, user_id=%s, using fallback",
-            notification_type,
-            profile.id,
-        )
-        return _get_fallback_message(notification_type, language)
-
-
-def _get_fallback_message(notification_type: str, language: str) -> str:
-    """Return a deterministic fallback message for the given type and language."""
-    type_messages = FALLBACK_MESSAGES.get(notification_type, {})
-    return type_messages.get(language, type_messages.get("en", "Hey! How are you?"))
-
-
-def _search_mem0(
-    mem0_user_id: str,
-    agent_id: str,
-    query: str,
-) -> list[dict[str, object]]:
-    """Search Mem0 for relevant memories (synchronous, called via to_thread)."""
-    client = MemoryClient(api_key=settings.mem0_api_key)
-    return client.search(  # type: ignore[no-any-return]
-        query,
-        user_id=mem0_user_id,
-        agent_id=agent_id,
-        limit=5,
+    return await _generator.generate(
+        profile=profile,
+        character=character,
+        notification_type=notification_type,
+        local_now=local_now,
     )
 
 

@@ -147,7 +147,15 @@ fun EmberNavHost() {
                 MemoriesScreen()
             }
             composable(Screen.Profile.route) {
-                ProfileScreen()
+                ProfileScreen(
+                    onSignOut = {
+                        authViewModel.signOut()
+                        navController.navigate(Screen.Auth.route) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
             composable(
                 route = Screen.Chat.route,

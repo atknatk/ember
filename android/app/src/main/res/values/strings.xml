@@ -58,6 +58,37 @@
     <!-- Profile Screen -->
     <string name="profile_title">Profile</string>
     <string name="profile_placeholder">Settings coming soon</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_cancel">Cancel</string>
+    <string name="profile_retry">Retry</string>
+    <string name="profile_avatar_a11y">Profile photo. Tap to change</string>
+    <string name="profile_name_a11y">Display name: %1$s. Tap to edit</string>
+    <string name="profile_tier_premium">Premium</string>
+    <string name="profile_tier_free">Free</string>
+    <string name="profile_preferences_title">Preferences</string>
+    <string name="profile_timezone_label">Timezone</string>
+    <string name="profile_timezone_a11y">Timezone. Opens timezone picker</string>
+    <string name="profile_language_label">Language</string>
+    <string name="profile_language_english">English</string>
+    <string name="profile_language_turkish">Turkish</string>
+    <string name="profile_language_a11y">Language. Tap to change</string>
+    <string name="profile_notifications_title">Notifications</string>
+    <string name="profile_notif_morning">Morning Check-in</string>
+    <string name="profile_notif_evening">Evening Reflection</string>
+    <string name="profile_notif_sleep">Sleep Reminder</string>
+    <string name="profile_account_title">Account</string>
+    <string name="profile_sign_out">Sign Out</string>
+    <string name="profile_sign_out_a11y">Sign out of your account</string>
+    <string name="profile_delete_account">Delete Account</string>
+    <string name="profile_delete_account_a11y">Delete your account permanently</string>
+    <string name="profile_delete_dialog_title">Delete Account</string>
+    <string name="profile_delete_dialog_message">This action is permanent and cannot be undone. All your data, conversations, and memories will be deleted.\n\nType DELETE MY ACCOUNT to confirm.</string>
+    <string name="profile_delete_dialog_hint">DELETE MY ACCOUNT</string>
+    <string name="profile_delete_confirm">Delete</string>
+    <string name="profile_delete_cancel">Cancel</string>
+    <string name="profile_timezone_picker_title">Select Timezone</string>
+    <string name="profile_timezone_search_hint">Search timezones…</string>
+    <string name="profile_timezone_search_a11y">Search timezones</string>
 
     <!-- Auth Screens -->
     <string name="auth_welcome_back">Welcome Back</string>

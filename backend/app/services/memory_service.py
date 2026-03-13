@@ -3,6 +3,9 @@
 Handles listing character-scoped memories, deleting single or all memories
 for a character, and listing global (non-character-scoped) memories.
 All Mem0 SDK calls are synchronous and wrapped in asyncio.to_thread().
+
+When the Mem0 circuit breaker is OPEN, user-facing memory management
+endpoints return HTTP 503 immediately (see shared/feature-specs/mem0-circuit-breaker.md).
 """
 
 from __future__ import annotations
@@ -17,6 +20,11 @@ from sqlalchemy import select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.circuit_breaker import (
+    CircuitOpenError,
+    CircuitState,
+    get_mem0_circuit_breaker,
+)
 from app.models.character import Character
 from app.schemas.memory import MemoryItem
 from app.utils.timing import log_external_call
@@ -45,18 +53,29 @@ class MemoryService:
         Raises:
             HTTPException(404): Character not found or inactive.
             HTTPException(403): Character does not belong to user.
-            HTTPException(503): Mem0 API unavailable.
+            HTTPException(503): Mem0 API unavailable or circuit breaker open.
         """
         character = await self._get_owned_character(character_id, user_id)
+        self._check_circuit()
 
         try:
-            client = MemoryClient(api_key=settings.mem0_api_key)
-            async with log_external_call("mem0", "get_all"):
-                results = await asyncio.to_thread(
-                    client.get_all,
-                    user_id=mem0_user_id,
-                    agent_id=character.mem0_agent_id,
-                )
+            breaker = get_mem0_circuit_breaker()
+
+            async def _do_get_all() -> list[dict[str, object]]:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "get_all"):
+                    return await asyncio.to_thread(
+                        client.get_all,
+                        user_id=mem0_user_id,
+                        agent_id=character.mem0_agent_id,
+                    )
+
+            results = await breaker.call_with_breaker(_do_get_all)
+        except CircuitOpenError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
         except Exception:
             logger.exception(
                 "Mem0 get_all failed for agent_id=%s", character.mem0_agent_id,
@@ -81,14 +100,25 @@ class MemoryService:
         Raises:
             HTTPException(404): Character not found or inactive.
             HTTPException(403): Character does not belong to user.
-            HTTPException(503): Mem0 API unavailable.
+            HTTPException(503): Mem0 API unavailable or circuit breaker open.
         """
         await self._get_owned_character(character_id, user_id)
+        self._check_circuit()
 
         try:
-            client = MemoryClient(api_key=settings.mem0_api_key)
-            async with log_external_call("mem0", "delete"):
-                await asyncio.to_thread(client.delete, memory_id)
+            breaker = get_mem0_circuit_breaker()
+
+            async def _do_delete() -> None:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "delete"):
+                    await asyncio.to_thread(client.delete, memory_id)
+
+            await breaker.call_with_breaker(_do_delete)
+        except CircuitOpenError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
         except Exception as exc:
             # Treat "not found" from Mem0 as success (idempotent delete)
             exc_str = str(exc).lower()
@@ -116,18 +146,29 @@ class MemoryService:
         Raises:
             HTTPException(404): Character not found or inactive.
             HTTPException(403): Character does not belong to user.
-            HTTPException(503): Mem0 API unavailable.
+            HTTPException(503): Mem0 API unavailable or circuit breaker open.
         """
         character = await self._get_owned_character(character_id, user_id)
+        self._check_circuit()
 
         try:
-            client = MemoryClient(api_key=settings.mem0_api_key)
-            async with log_external_call("mem0", "delete_all"):
-                await asyncio.to_thread(
-                    client.delete_all,
-                    user_id=mem0_user_id,
-                    agent_id=character.mem0_agent_id,
-                )
+            breaker = get_mem0_circuit_breaker()
+
+            async def _do_delete_all() -> None:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "delete_all"):
+                    await asyncio.to_thread(
+                        client.delete_all,
+                        user_id=mem0_user_id,
+                        agent_id=character.mem0_agent_id,
+                    )
+
+            await breaker.call_with_breaker(_do_delete_all)
+        except CircuitOpenError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
         except Exception:
             logger.exception(
                 "Mem0 delete_all failed for agent_id=%s", character.mem0_agent_id,
@@ -144,15 +185,27 @@ class MemoryService:
         """Get all global (non-character-scoped) Mem0 memories.
 
         Raises:
-            HTTPException(503): Mem0 API unavailable.
+            HTTPException(503): Mem0 API unavailable or circuit breaker open.
         """
+        self._check_circuit()
+
         try:
-            client = MemoryClient(api_key=settings.mem0_api_key)
-            async with log_external_call("mem0", "get_all"):
-                results = await asyncio.to_thread(
-                    client.get_all,
-                    user_id=mem0_user_id,
-                )
+            breaker = get_mem0_circuit_breaker()
+
+            async def _do_get_all() -> list[dict[str, object]]:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "get_all"):
+                    return await asyncio.to_thread(
+                        client.get_all,
+                        user_id=mem0_user_id,
+                    )
+
+            results = await breaker.call_with_breaker(_do_get_all)
+        except CircuitOpenError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
         except Exception:
             logger.exception(
                 "Mem0 get_all (global) failed for user_id=%s", mem0_user_id,
@@ -167,6 +220,18 @@ class MemoryService:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _check_circuit(self) -> None:
+        """Raise 503 immediately if the circuit breaker is OPEN.
+
+        HALF_OPEN state is allowed through as a probe opportunity.
+        """
+        breaker = get_mem0_circuit_breaker()
+        if breaker.state == CircuitState.OPEN:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            )
 
     async def _get_owned_character(
         self,

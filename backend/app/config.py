@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     # Memory
     mem0_api_key: str = ""
 
+    # Circuit Breaker
+    mem0_circuit_failure_threshold: int = 3
+    mem0_circuit_recovery_timeout: float = 60.0
+    mem0_cache_ttl: float = 300.0
+    mem0_retry_queue_max_size: int = 100
+
     # Chat context
     max_context_messages: int = 50
 

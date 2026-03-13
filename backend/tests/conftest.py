@@ -35,6 +35,13 @@ def _reset_rate_limiter() -> None:
         app.state.rate_limiter._buckets.clear()
 
 
+@pytest.fixture(autouse=True)
+def _reset_circuit_breaker() -> None:
+    """Reset the Mem0 circuit breaker singleton before each test."""
+    import app.core.circuit_breaker as cb_module
+    cb_module._breaker = None
+
+
 async def _override_get_db() -> AsyncGenerator[AsyncMock, None]:
     """Yield a mock database session for tests that do not need a real DB."""
     yield AsyncMock()

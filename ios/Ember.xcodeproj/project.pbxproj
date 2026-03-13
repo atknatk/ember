@@ -53,6 +53,7 @@
 		A04BA81FBA32142ADAB62A8C /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB2A1DCD60BEE6ECDF317BE /* HapticManager.swift */; };
 		A610D351D732D5FAE334C4B3 /* MemoriesPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62A9E0968BBA18CC53E4D0BC /* MemoriesPlaceholderView.swift */; };
 		A968C087F957EB463C4312D2 /* AuthViewModelExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB219CD2A3724F6E6A6D1C84 /* AuthViewModelExtendedTests.swift */; };
+		B2F4C1A3D90E7521AFC83D15 /* AuthScreensViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E3B09C5F1D4862CB901234 /* AuthScreensViewModelTests.swift */; };
 		ACC0A3867AE871060A59E1FB /* APIEndpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12E6C3943FFBAEA963EEED7 /* APIEndpointTests.swift */; };
 		B061BFDD454914E0022BB743 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3AFC32F9C84C3421AC9F7EB1 /* LaunchScreen.storyboard */; };
 		B5A1FF4A309324FFDB633E5E /* APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22A9D0981F6D1785703F117D /* APIEndpoint.swift */; };
@@ -149,6 +150,7 @@
 		F71752F4D66E39D2EDD5FD7E /* AppContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainerTests.swift; sourceTree = "<group>"; };
 		F9C288A1B6AF5D4219689A57 /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		FB219CD2A3724F6E6A6D1C84 /* AuthViewModelExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModelExtendedTests.swift; sourceTree = "<group>"; };
+		A7E3B09C5F1D4862CB901234 /* AuthScreensViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthScreensViewModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -434,6 +436,7 @@
 		F7C943E9BD81D247624A0CB6 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				A7E3B09C5F1D4862CB901234 /* AuthScreensViewModelTests.swift */,
 				FB219CD2A3724F6E6A6D1C84 /* AuthViewModelExtendedTests.swift */,
 				CF3EDF6EAF5E8B7423D06C5A /* AuthViewModelTests.swift */,
 			);
@@ -595,6 +598,7 @@
 				5793BB23F5599E859AA62FD2 /* AppRouterTests.swift in Sources */,
 				3AED59055DE55BF66E8F729C /* AuthServiceExtendedTests.swift in Sources */,
 				2D7B4CD0AE3FEFDE24D5E7FC /* AuthServiceTests.swift in Sources */,
+				B2F4C1A3D90E7521AFC83D15 /* AuthScreensViewModelTests.swift in Sources */,
 				A968C087F957EB463C4312D2 /* AuthViewModelExtendedTests.swift in Sources */,
 				C0FB1B404863AA1444CB3EBF /* AuthViewModelTests.swift in Sources */,
 				300257909CDA83CF8660B4A4 /* CGFloatEmberTests.swift in Sources */,

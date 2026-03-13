@@ -195,7 +195,7 @@ class TestContentCompleteness:
         )
 
     def test_endpoint_count(self) -> None:
-        """The spec must document all 19 endpoint+method combinations."""
+        """The spec must document all 20 endpoint+method combinations."""
         root = _load_root_spec()
         paths = _load_all_paths(root)
 
@@ -205,7 +205,7 @@ class TestContentCompleteness:
                 if isinstance(op, dict):
                     count += 1
 
-        assert count == 19, f"Expected 19 endpoints, found {count}"
+        assert count == 20, f"Expected 20 endpoints, found {count}"
 
 
 # ---------------------------------------------------------------------------

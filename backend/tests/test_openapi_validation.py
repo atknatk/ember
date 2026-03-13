@@ -867,8 +867,8 @@ class TestLoadYamlSpecs:
         """
         contracts_dir = backend_dir.parent / "shared" / "api-contracts"
         yaml_paths = load_yaml_specs(contracts_dir)
-        assert len(yaml_paths) == 14, (
-            f"Expected 14 path keys from YAML specs, got {len(yaml_paths)}"
+        assert len(yaml_paths) == 15, (
+            f"Expected 15 path keys from YAML specs, got {len(yaml_paths)}"
         )
 
     def test_unresolvable_pointer_prints_warning_and_skips(

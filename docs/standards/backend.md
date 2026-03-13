@@ -56,6 +56,7 @@ backend/
       health.py
       media.py
       memories.py
+      notifications.py
       onboarding.py
       profile.py
       # voice.py — planned for Phase 3
@@ -71,6 +72,7 @@ backend/
       memory_service.py
       notification_scheduler.py  # APScheduler cron jobs for proactive notifications
       notification_sender.py     # Firebase FCM push notification delivery
+      notification_service.py    # High-level notification service (user lookup + send)
       onboarding_service.py
       profile_service.py
       llm/                   # Multi-provider LLM package

@@ -1,0 +1,104 @@
+/notifications/token:
+  put:
+    tags: [notifications]
+    summary: Register FCM token
+    description: >
+      Register or update the authenticated user's Firebase Cloud Messaging
+      device token. Idempotent — calling with the same token multiple times
+      has the same effect. Each user has exactly one FCM token at a time.
+    operationId: registerFcmToken
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [fcm_token]
+            properties:
+              fcm_token:
+                type: string
+                minLength: 1
+                maxLength: 4096
+                description: FCM registration token from the device
+    responses:
+      "200":
+        description: Token registered successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: ok
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: array
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit resets
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+
+  delete:
+    tags: [notifications]
+    summary: Unregister FCM token
+    description: >
+      Remove the authenticated user's FCM token. Used when the user
+      disables notifications or logs out. Idempotent — returns 204
+      regardless of whether a token was previously stored.
+    operationId: unregisterFcmToken
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Token removed (or was already absent)
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit resets
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string

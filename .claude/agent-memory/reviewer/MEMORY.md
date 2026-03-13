@@ -93,6 +93,17 @@
 6. `print(` in `ios/Ember/` (use logging/os_log instead)
 7. `\)!` for force unwraps -- verify each is on a known-valid literal
 
+## iOS Onboarding Review Notes
+- OnboardingFlowView is the top-level container, routes between WelcomeView and QuestionsView via ViewModel.Phase
+- @AppStorage("hasCompletedOnboarding") write stays in View layer (OnboardingFlowView), ViewModel returns Bool
+- ViewModel's `skipCurrentQuestion()` for index 6 is dead code -- View handles skip-on-last directly
+- Lottie fallback: WelcomeView checks `Bundle.main.url(forResource:withExtension:)`, shows SF Symbol if missing
+- MockAPIClient uses `requestResult: Any?` pattern for generic response mocking
+- 409 treated as success in ViewModel (line 139 catches serverError with statusCode 409)
+- Skipped answers mapped to "Not provided" string (backend min_length=1 requirement)
+- ~71 total tests across 3 files (base 20 + extended ~35 + models ~16)
+- ios-tester created SEPARATE extended test files (consistent with backend pattern)
+
 ## Completed Reviews
 - P01-05 character-crud (backend layer): APPROVED 2026-02-23, 0 issues found
 - P01-06 chat-streaming (backend layer): APPROVED 2026-02-24, 0 issues found, 130 tests at 100% coverage
@@ -101,3 +112,4 @@
 - P01-10 media-upload (backend layer): APPROVED 2026-02-24, 0 issues found, 137 tests at 100% coverage
 - P02-03 fcm-push-service (backend layer): APPROVED 2026-03-13, 0 issues found, 67 tests at 100% coverage
 - P03-03 ios-cognito-auth (ios layer): APPROVED 2026-03-13, 0 issues found, 45 tests, 2 warnings
+- P03-04 ios-onboarding (ios layer): APPROVED 2026-03-13, 0 issues found, 20 tests, 3 warnings

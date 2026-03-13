@@ -53,6 +53,16 @@
 - Build minimal Starlette Request: `Request({"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": []})`
 - `StarletteResponse(status_code=500)` from `starlette.responses` works as mock response
 
+## OpenAPI / YAML Spec Test Patterns
+- `load_yaml_specs()` returns path KEYS (14 in the current spec), not endpoint+method count (19)
+- Scripts in `backend/scripts/` can be imported via `sys.path.insert(0, str(backend_dir))` in test files
+- For `--cov` on scripts: use `--cov=scripts.validate_openapi` (dotted module path, not file path)
+- `capsys` fixture captures `print()` output; useful for testing warning/error print paths in scripts
+- `tmp_path` fixture (built-in pytest) creates a temp directory for tests that need to write YAML files
+- For CLI `sys.exit()` tests: use `pytest.raises(SystemExit)` and check `.code`
+- `get_path_params`, `extract_required_fields`, `resolve_ref` are all importable from `scripts.validate_openapi`
+- `main()` CLI entry points are intentionally left uncovered -- subprocess testing adds fragility
+
 ## Circuit Breaker Test Patterns
 - Reset singleton between tests: conftest.py autouse fixture sets `app.core.circuit_breaker._breaker = None`
 - Save and restore original `cb_module._breaker` in each test that injects a custom instance (`original = cb_module._breaker; cb_module._breaker = ...; try/finally`)

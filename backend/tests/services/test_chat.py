@@ -32,6 +32,7 @@ from app.services.chat_service import (  # noqa: E402
     _encode_cursor,
     _persist_exchange,
 )
+from app.services.llm.exceptions import LLMProviderError  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -96,6 +97,46 @@ def _make_fake_message(
     msg.metadata_ = None
     msg.created_at = datetime.now(tz=UTC) - timedelta(minutes=offset_minutes)
     return msg
+
+
+def _make_mock_llm_router(
+    stream_chunks: list[str] | None = None,
+    complete_fast_result: str = "none",
+    stream_error: Exception | None = None,
+    complete_fast_error: Exception | None = None,
+) -> MagicMock:
+    """Create a mock LLMRouter with a mock provider.
+
+    Args:
+        stream_chunks: Text chunks the stream() method will yield.
+        complete_fast_result: Text returned by complete_fast().
+        stream_error: If set, stream() raises this after yielding.
+        complete_fast_error: If set, complete_fast() raises this.
+    """
+    mock_router = MagicMock()
+    mock_provider = MagicMock()
+
+    async def _mock_stream(
+        system: str = "",
+        messages: list[dict[str, str]] | None = None,
+        model: str | None = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.8,
+    ) -> AsyncGenerator[str, None]:
+        if stream_error is not None:
+            raise stream_error
+        for chunk in (stream_chunks or []):
+            yield chunk
+
+    mock_provider.stream = _mock_stream
+
+    if complete_fast_error is not None:
+        mock_provider.complete_fast = AsyncMock(side_effect=complete_fast_error)
+    else:
+        mock_provider.complete_fast = AsyncMock(return_value=complete_fast_result)
+
+    mock_router.get = MagicMock(return_value=mock_provider)
+    return mock_router
 
 
 def _make_valid_context() -> dict[str, Any]:
@@ -203,31 +244,19 @@ class TestStreamResponse:
 
     @pytest.mark.asyncio
     async def test_yields_chunk_events(self) -> None:
-        """stream_response yields chunk events from Claude stream."""
+        """stream_response yields chunk events from LLM provider stream."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(
+            stream_chunks=["Hello", ", ", "world!"],
+        )
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            for chunk in ["Hello", ", ", "world!"]:
-                yield chunk
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(service, "_extract_intent", return_value=None),
             patch("app.services.chat_service._persist_exchange"),
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             sse_lines = []
             async for event in service.stream_response(
                 context=ctx,
@@ -250,20 +279,11 @@ class TestStreamResponse:
         """stream_response yields action event when intent is detected."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(stream_chunks=["Setting alarm."])
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            yield "Setting alarm."
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(
                 service,
                 "_extract_intent",
@@ -274,10 +294,6 @@ class TestStreamResponse:
             ),
             patch("app.services.chat_service._persist_exchange"),
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             sse_lines = []
             async for event in service.stream_response(
                 context=ctx,
@@ -298,27 +314,14 @@ class TestStreamResponse:
         """No action event when Haiku returns none."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(stream_chunks=["Just chatting."])
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            yield "Just chatting."
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(service, "_extract_intent", return_value=None),
             patch("app.services.chat_service._persist_exchange"),
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             sse_lines = []
             async for event in service.stream_response(
                 context=ctx,
@@ -337,27 +340,14 @@ class TestStreamResponse:
         """stream_response yields done event with valid UUID message_id."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(stream_chunks=["Hi"])
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            yield "Hi"
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(service, "_extract_intent", return_value=None),
             patch("app.services.chat_service._persist_exchange"),
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             sse_lines = []
             async for event in service.stream_response(
                 context=ctx,
@@ -378,28 +368,15 @@ class TestStreamResponse:
         """stream_response fires asyncio.create_task for persistence."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(stream_chunks=["Hi"])
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            yield "Hi"
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(service, "_extract_intent", return_value=None),
             patch("app.services.chat_service._persist_exchange"),
             patch("app.services.chat_service.asyncio") as mock_asyncio,
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             mock_asyncio.gather = asyncio.gather
             mock_asyncio.to_thread = asyncio.to_thread
             mock_asyncio.create_task = MagicMock()
@@ -418,29 +395,26 @@ class TestStreamResponse:
 
     @pytest.mark.asyncio
     async def test_claude_error_emits_error_event(self) -> None:
-        """stream_response emits error event when Claude fails."""
+        """stream_response emits error event when LLM provider fails."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(
+            stream_error=LLMProviderError(
+                "API error", code="provider_error", provider="claude",
+            ),
+        )
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(side_effect=Exception("API error"))
-
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
-            sse_lines = []
-            async for event in service.stream_response(
-                context=ctx,
-                user_id=FAKE_USER_ID,
-                profile=profile,
-                content="Hello",
-                media_url=None,
-            ):
-                sse_lines.append(event)
+        sse_lines = []
+        async for event in service.stream_response(
+            context=ctx,
+            user_id=FAKE_USER_ID,
+            profile=profile,
+            content="Hello",
+            media_url=None,
+        ):
+            sse_lines.append(event)
 
         events = _parse_sse_events(sse_lines)
         assert events[-1]["type"] == "error"
@@ -661,22 +635,14 @@ class TestExtractIntent:
     async def test_returns_action_when_intent_detected(self) -> None:
         """Returns action dict when Haiku finds an intent."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
-
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = json.dumps({
+        intent_json = json.dumps({
             "action": "SET_ALARM",
             "payload": {"time": "2026-02-24T07:00:00", "label": "Wake up"},
         })
-        mock_response.content = [mock_content]
+        mock_router = _make_mock_llm_router(complete_fast_result=intent_json)
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("I'll set an alarm.", "UTC")
+        result = await service._extract_intent("I'll set an alarm.", "UTC")
 
         assert result is not None
         assert result["action"] == "SET_ALARM"
@@ -685,19 +651,10 @@ class TestExtractIntent:
     async def test_returns_none_when_haiku_says_none(self) -> None:
         """Returns None when Haiku responds with 'none'."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(complete_fast_result="none")
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = "none"
-        mock_response.content = [mock_content]
-
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Just chatting.", "UTC")
+        result = await service._extract_intent("Just chatting.", "UTC")
 
         assert result is None
 
@@ -705,14 +662,12 @@ class TestExtractIntent:
     async def test_returns_none_when_haiku_fails(self) -> None:
         """Returns None when Haiku call fails (no crash)."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(
+            complete_fast_error=Exception("API error"),
+        )
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(side_effect=Exception("API error"))
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Some text.", "UTC")
+        result = await service._extract_intent("Some text.", "UTC")
 
         assert result is None
 
@@ -1065,20 +1020,11 @@ class TestStreamResponseAdditional:
         """Action event always comes before done event in the stream."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(stream_chunks=["Setting alarm now."])
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            yield "Setting alarm now."
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(
                 service,
                 "_extract_intent",
@@ -1089,10 +1035,6 @@ class TestStreamResponseAdditional:
             ),
             patch("app.services.chat_service._persist_exchange"),
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             sse_lines = []
             async for event in service.stream_response(
                 context=ctx,
@@ -1114,28 +1056,15 @@ class TestStreamResponseAdditional:
         """Background task receives correct arguments."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(stream_chunks=["Response text"])
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            yield "Response text"
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(service, "_extract_intent", return_value=None),
             patch("app.services.chat_service._persist_exchange") as mock_persist,
             patch("app.services.chat_service.asyncio") as mock_asyncio_mod,
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             mock_asyncio_mod.gather = asyncio.gather
             mock_asyncio_mod.to_thread = asyncio.to_thread
             mock_asyncio_mod.create_task = MagicMock()
@@ -1157,28 +1086,15 @@ class TestStreamResponseAdditional:
         """Stream yields multiple chunk events with proper content."""
         profile = _make_fake_profile()
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        tokens = ["I", " am", " Emma", ".", " How", " can", " I", " help", "?"]
+        mock_router = _make_mock_llm_router(stream_chunks=tokens)
+        service = ChatService(mock_db, llm_router=mock_router)
         ctx = _make_valid_context()
 
-        mock_stream = AsyncMock()
-        mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-        mock_stream.__aexit__ = AsyncMock(return_value=False)
-
-        async def _text_iter() -> AsyncGenerator[str, None]:
-            for token in ["I", " am", " Emma", ".", " How", " can", " I", " help", "?"]:
-                yield token
-
-        mock_stream.text_stream = _text_iter()
-
         with (
-            patch("app.services.chat_service.AsyncAnthropic") as mock_a,
             patch.object(service, "_extract_intent", return_value=None),
             patch("app.services.chat_service._persist_exchange"),
         ):
-            mc = AsyncMock()
-            mc.messages.stream = MagicMock(return_value=mock_stream)
-            mock_a.return_value = mc
-
             sse_lines = []
             async for event in service.stream_response(
                 context=ctx,
@@ -1373,11 +1289,7 @@ class TestExtractIntentAdditional:
     async def test_returns_calendar_event_action(self) -> None:
         """Returns ADD_CALENDAR_EVENT action when Haiku detects it."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
-
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = json.dumps({
+        intent_json = json.dumps({
             "action": "ADD_CALENDAR_EVENT",
             "payload": {
                 "title": "Dentist",
@@ -1386,16 +1298,12 @@ class TestExtractIntentAdditional:
                 "duration_minutes": 60,
             },
         })
-        mock_response.content = [mock_content]
+        mock_router = _make_mock_llm_router(complete_fast_result=intent_json)
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent(
-                "I've added the dentist appointment.", "UTC",
-            )
+        result = await service._extract_intent(
+            "I've added the dentist appointment.", "UTC",
+        )
 
         assert result is not None
         assert result["action"] == "ADD_CALENDAR_EVENT"
@@ -1405,19 +1313,12 @@ class TestExtractIntentAdditional:
     async def test_returns_none_for_invalid_json(self) -> None:
         """Returns None when Haiku responds with invalid JSON."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(
+            complete_fast_result="this is not json {{{]]]",
+        )
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = "this is not json {{{]]]"
-        mock_response.content = [mock_content]
-
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Some text.", "UTC")
+        result = await service._extract_intent("Some text.", "UTC")
 
         assert result is None
 
@@ -1425,22 +1326,14 @@ class TestExtractIntentAdditional:
     async def test_returns_none_for_unsupported_action(self) -> None:
         """Returns None when Haiku returns an unsupported action type."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
-
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = json.dumps({
+        intent_json = json.dumps({
             "action": "UNSUPPORTED_ACTION",
             "payload": {"data": "value"},
         })
-        mock_response.content = [mock_content]
+        mock_router = _make_mock_llm_router(complete_fast_result=intent_json)
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Some text.", "UTC")
+        result = await service._extract_intent("Some text.", "UTC")
 
         assert result is None
 
@@ -1448,19 +1341,11 @@ class TestExtractIntentAdditional:
     async def test_returns_none_for_json_without_action_key(self) -> None:
         """Returns None when Haiku returns valid JSON but no 'action' key."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        intent_json = json.dumps({"something": "else"})
+        mock_router = _make_mock_llm_router(complete_fast_result=intent_json)
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = json.dumps({"something": "else"})
-        mock_response.content = [mock_content]
-
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Some text.", "UTC")
+        result = await service._extract_intent("Some text.", "UTC")
 
         assert result is None
 
@@ -1468,19 +1353,10 @@ class TestExtractIntentAdditional:
     async def test_returns_none_for_none_case_insensitive(self) -> None:
         """Returns None when Haiku responds with 'None' (uppercase)."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        mock_router = _make_mock_llm_router(complete_fast_result="None")
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = "None"
-        mock_response.content = [mock_content]
-
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Just a casual response.", "UTC")
+        result = await service._extract_intent("Just a casual response.", "UTC")
 
         assert result is None
 
@@ -1488,19 +1364,11 @@ class TestExtractIntentAdditional:
     async def test_returns_default_empty_payload_when_missing(self) -> None:
         """Returns empty payload dict when Haiku omits payload key."""
         mock_db = AsyncMock()
-        service = ChatService(mock_db)
+        intent_json = json.dumps({"action": "SET_ALARM"})
+        mock_router = _make_mock_llm_router(complete_fast_result=intent_json)
+        service = ChatService(mock_db, llm_router=mock_router)
 
-        mock_response = MagicMock()
-        mock_content = MagicMock()
-        mock_content.text = json.dumps({"action": "SET_ALARM"})
-        mock_response.content = [mock_content]
-
-        with patch("app.services.chat_service.AsyncAnthropic") as mock_a:
-            mc = AsyncMock()
-            mc.messages.create = AsyncMock(return_value=mock_response)
-            mock_a.return_value = mc
-
-            result = await service._extract_intent("Set alarm.", "UTC")
+        result = await service._extract_intent("Set alarm.", "UTC")
 
         assert result is not None
         assert result["action"] == "SET_ALARM"

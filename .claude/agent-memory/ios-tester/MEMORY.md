@@ -6,3 +6,4 @@
 - [iOS onboarding test patterns](project_ios_onboarding.md) — MockAPIClient for onboarding, JSON model testing, pbxproj group IDs for onboarding tests
 - [iOS home view test patterns](project_ios_home_view.md) — MockHomeAPIClient with per-endpoint routing, UserDefaults isolation, pbxproj group IDs for Home tests, xcodegen UUID regeneration behaviour
 - [iOS chat view test patterns](project_ios_chat_test_patterns.md) — MockChatService, ChatMessageListResponse type, error rollback behavior, pbxproj group IDs for chat tests
+- [iOS memory list test patterns](project_ios_memories_test_patterns.md) — MockMemoriesAPIClient with endpoint routing, MemorySegment equality, showDeleteConfirmation computed property, pbxproj already registered by ios-dev

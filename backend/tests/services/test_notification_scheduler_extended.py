@@ -31,6 +31,7 @@ import pytest
 from app.services.notification_scheduler import (
     FALLBACK_MESSAGES,
     _generate_notification_message,
+    _generator,
     _get_fallback_message,
     _process_notification,
     _process_user,
@@ -888,7 +889,7 @@ class TestProcessNotificationEdgeCases:
 
         with (
             patch(
-                "app.services.notification_scheduler._generate_notification_message",
+                "app.services.notification_scheduler._generator.generate",
                 return_value="Good morning!",
             ),
             patch(
@@ -935,7 +936,7 @@ class TestProcessNotificationEdgeCases:
 
         with (
             patch(
-                "app.services.notification_scheduler._generate_notification_message",
+                "app.services.notification_scheduler._generator.generate",
                 return_value="Good morning!",
             ),
             patch(
@@ -972,11 +973,11 @@ class TestGenerateNotificationMessageFallbacks:
 
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 return_value=memories,
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
                 side_effect=Exception("LLM unavailable"),
             ),
         ):
@@ -998,11 +999,11 @@ class TestGenerateNotificationMessageFallbacks:
 
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 return_value=[{"memory": "Loves morning runs"}],
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
             ) as mock_router,
         ):
             mock_provider = AsyncMock()
@@ -1027,11 +1028,11 @@ class TestGenerateNotificationMessageFallbacks:
 
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 side_effect=Exception("Mem0 down"),
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
                 side_effect=Exception("LLM down"),
             ),
         ):
@@ -1061,11 +1062,11 @@ class TestGenerateNotificationMessageFallbacks:
 
             with (
                 patch(
-                    "app.services.notification_scheduler._search_mem0",
+                    "app.services.proactive_message_generator._search_mem0",
                     side_effect=Exception("down"),
                 ),
                 patch(
-                    "app.services.notification_scheduler.get_llm_router",
+                    "app.services.proactive_message_generator.get_llm_router",
                     side_effect=Exception("down"),
                 ),
             ):
@@ -1238,7 +1239,7 @@ class TestProcessNotificationNoFcmToken:
 
         with (
             patch(
-                "app.services.notification_scheduler._generate_notification_message",
+                "app.services.notification_scheduler._generator.generate",
                 return_value="Hello!",
             ),
             patch(

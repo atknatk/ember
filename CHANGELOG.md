@@ -36,6 +36,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P02-05] Content moderation pipeline with abuse escalation and therapist crisis detection
 - [P02-02] APScheduler-based notification scheduler with timezone-aware triggers and midnight reset
 - [P02-03] Firebase Cloud Messaging push notification service with token management endpoints
+- [P02-04] Proactive message generator with Mem0 + Claude Haiku personalization and in-memory caching
 
 ---
 

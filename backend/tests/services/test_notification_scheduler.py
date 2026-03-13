@@ -15,6 +15,7 @@ import pytest
 
 from app.services.notification_scheduler import (
     _generate_notification_message,
+    _generator,
     _process_notification,
     _process_user,
     evaluate_notification_triggers,
@@ -362,7 +363,7 @@ class TestProcessNotification:
 
     @pytest.mark.asyncio
     async def test_sends_notification_with_personalized_message(self) -> None:
-        """Test #13: Valid user, Mem0 returns memories, Haiku generates message."""
+        """Test #13: Valid user, generator produces message, FCM sends it."""
         user_id = uuid.uuid4()
         profile = _make_profile(user_id=user_id)
         activity = _make_activity(user_id=user_id)
@@ -374,8 +375,9 @@ class TestProcessNotification:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         with (
-            patch(
-                "app.services.notification_scheduler._generate_notification_message",
+            patch.object(
+                _generator,
+                "generate",
                 return_value="Good morning, Test User!",
             ) as mock_gen,
             patch(
@@ -409,13 +411,16 @@ class TestProcessNotification:
         profile = _make_profile(user_id=user_id)
         character = _make_character(user_id=user_id)
 
+        # Clear generator cache to ensure fresh generation
+        _generator.clear_cache()
+
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 side_effect=Exception("Mem0 down"),
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
             ) as mock_router,
         ):
             mock_provider = AsyncMock()
@@ -439,13 +444,16 @@ class TestProcessNotification:
         profile = _make_profile(user_id=user_id)
         character = _make_character(user_id=user_id)
 
+        # Clear generator cache to ensure fresh generation
+        _generator.clear_cache()
+
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 return_value=[],
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
                 side_effect=Exception("LLM unavailable"),
             ),
         ):
@@ -472,8 +480,9 @@ class TestProcessNotification:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         with (
-            patch(
-                "app.services.notification_scheduler._generate_notification_message",
+            patch.object(
+                _generator,
+                "generate",
                 return_value="Hello!",
             ),
             patch(
@@ -649,13 +658,16 @@ class TestFallbackMessages:
         profile = _make_profile(user_id=user_id, preferred_language="tr")
         character = _make_character(user_id=user_id)
 
+        # Clear generator cache to ensure fresh generation
+        _generator.clear_cache()
+
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 side_effect=Exception("Mem0 down"),
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
                 side_effect=Exception("LLM down"),
             ),
         ):
@@ -675,13 +687,16 @@ class TestFallbackMessages:
         profile = _make_profile(user_id=user_id, preferred_language="de")
         character = _make_character(user_id=user_id)
 
+        # Clear generator cache to ensure fresh generation
+        _generator.clear_cache()
+
         with (
             patch(
-                "app.services.notification_scheduler._search_mem0",
+                "app.services.proactive_message_generator._search_mem0",
                 side_effect=Exception("Mem0 down"),
             ),
             patch(
-                "app.services.notification_scheduler.get_llm_router",
+                "app.services.proactive_message_generator.get_llm_router",
                 side_effect=Exception("LLM down"),
             ),
         ):

@@ -13,6 +13,7 @@ struct MemoryRowView: View {
             RoundedRectangle(cornerRadius: .emberRadius12)
                 .fill(Color.emberSurface2)
         )
+        .emberCardShadowLight()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
     }

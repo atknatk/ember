@@ -88,6 +88,7 @@ struct LoginView: View {
                     .clipShape(RoundedRectangle(cornerRadius: .emberRadius28))
                 }
                 .disabled(!viewModel.isSignInFormValid || viewModel.isLoading)
+                .buttonStyle(.ember)
                 .accessibilityLabel("Sign In")
                 .accessibilityHint("Double tap to sign in with your email and password")
                 .offset(x: shakeOffset)

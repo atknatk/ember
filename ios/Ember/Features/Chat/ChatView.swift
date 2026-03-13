@@ -71,12 +71,16 @@ struct ChatView: View {
                             case .message(let message):
                                 MessageBubbleView(message: message)
                                     .id(message.id)
-                                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
                             case .dateSeparator(let separator):
                                 DateSeparatorView(date: separator.date)
                                     .id(separator.id)
                             }
                         }
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.8),
+                            value: viewModel.messages.count
+                        )
                     }
                     .padding(.vertical, .emberSpacing8)
                 }
@@ -104,13 +108,31 @@ struct ChatView: View {
 
     @ViewBuilder
     private var loadingView: some View {
-        VStack {
+        VStack(spacing: .emberSpacing8) {
             Spacer()
-            ProgressView()
-                .tint(Color.emberPrimary)
-            Spacer()
+
+            // Skeleton chat bubbles mimicking a conversation
+            skeletonBubble(alignment: .leading, widthFraction: 0.7)
+            skeletonBubble(alignment: .trailing, widthFraction: 0.5)
+            skeletonBubble(alignment: .leading, widthFraction: 0.6)
+            skeletonBubble(alignment: .trailing, widthFraction: 0.45)
         }
+        .padding(.horizontal, .emberSpacing16)
+        .padding(.bottom, .emberSpacing16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func skeletonBubble(alignment: HorizontalAlignment, widthFraction: CGFloat) -> some View {
+        HStack {
+            if alignment == .trailing { Spacer(minLength: 60) }
+
+            ShimmerView(cornerRadius: .emberRadius16)
+                .frame(height: 44)
+                .frame(maxWidth: .infinity)
+
+            if alignment == .leading { Spacer(minLength: 60) }
+        }
     }
 
     @ViewBuilder
@@ -118,9 +140,7 @@ struct ChatView: View {
         VStack(spacing: .emberSpacing16) {
             Spacer()
 
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 48, weight: .medium))
-                .foregroundStyle(Color.emberPrimary)
+            EmptyChatIconView()
                 .accessibilityHidden(true)
 
             Text("Start a conversation")
@@ -136,5 +156,25 @@ struct ChatView: View {
         }
         .padding(.horizontal, .emberSpacing20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Empty Chat Icon with Pulse
+
+/// Gentle scale pulse animation for the empty chat state icon.
+private struct EmptyChatIconView: View {
+    @State private var isPulsing: Bool = false
+
+    var body: some View {
+        Image(systemName: "bubble.left.and.bubble.right")
+            .font(.system(size: 48, weight: .medium))
+            .foregroundStyle(Color.emberPrimary)
+            .scaleEffect(isPulsing ? 1.05 : 0.95)
+            .animation(
+                .easeInOut(duration: 2.0)
+                .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear { isPulsing = true }
     }
 }

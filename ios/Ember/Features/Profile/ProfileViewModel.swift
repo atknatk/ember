@@ -19,6 +19,7 @@ final class ProfileViewModel {
     var notificationPreferences: [String: Bool] = [:]
     var shouldSignOut: Bool = false
     var accountDeleted: Bool = false
+    var didSaveSuccessfully: Bool = false
 
     // MARK: - Dependencies
 
@@ -77,6 +78,7 @@ final class ProfileViewModel {
             profile = updated
             isEditingName = false
             HapticManager.notification(.success)
+            flashSaveSuccess()
         } catch {
             errorMessage = error.localizedDescription
             HapticManager.notification(.error)
@@ -97,6 +99,7 @@ final class ProfileViewModel {
             )
             profile = updated
             HapticManager.notification(.success)
+            flashSaveSuccess()
         } catch {
             errorMessage = error.localizedDescription
             HapticManager.notification(.error)
@@ -117,6 +120,7 @@ final class ProfileViewModel {
             )
             profile = updated
             HapticManager.notification(.success)
+            flashSaveSuccess()
         } catch {
             errorMessage = error.localizedDescription
             HapticManager.notification(.error)
@@ -247,5 +251,14 @@ final class ProfileViewModel {
 
     private func persistNotificationPreferences() {
         UserDefaults.standard.set(notificationPreferences, forKey: "notification_preferences")
+    }
+
+    /// Briefly sets `didSaveSuccessfully` to true, then resets after 0.5s.
+    private func flashSaveSuccess() {
+        didSaveSuccessfully = true
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            didSaveSuccessfully = false
+        }
     }
 }

@@ -55,12 +55,11 @@ struct CharacterCardView: View {
             .frame(maxWidth: .infinity)
             .background(Color.emberSurface2)
             .clipShape(RoundedRectangle(cornerRadius: .emberRadius20))
+            .emberCardShadow()
             .overlay(alignment: .topTrailing) {
-                // Unread dot
+                // Unread dot with pulse animation
                 if hasUnread {
-                    Circle()
-                        .fill(Color.emberAccent)
-                        .frame(width: 8, height: 8)
+                    UnreadDotView()
                         .padding(.emberSpacing8)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -91,6 +90,26 @@ struct CharacterCardView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - Unread Dot
+
+/// A pulsing red dot indicating unread messages.
+private struct UnreadDotView: View {
+    @State private var isPulsing: Bool = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.emberAccent)
+            .frame(width: 8, height: 8)
+            .scaleEffect(isPulsing ? 1.15 : 1.0)
+            .animation(
+                .easeInOut(duration: 0.8)
+                .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear { isPulsing = true }
     }
 }
 

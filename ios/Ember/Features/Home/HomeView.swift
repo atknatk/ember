@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @State private var viewModel: HomeViewModel
+    @State private var hasAppeared: Bool = false
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
         _viewModel = State(initialValue: HomeViewModel(apiClient: apiClient))
@@ -12,10 +13,12 @@ struct HomeView: View {
         Group {
             if viewModel.isLoading && viewModel.characters.isEmpty {
                 loadingView
+                    .transition(.opacity)
             } else if !viewModel.isLoading && viewModel.characters.isEmpty && viewModel.errorMessage == nil {
                 emptyStateView
             } else {
                 characterListContent
+                    .transition(.opacity)
             }
         }
         .background(Color.emberBackground.ignoresSafeArea())
@@ -32,6 +35,7 @@ struct HomeView: View {
                 .accessibilityLabel("Settings")
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isLoading)
         .task {
             await viewModel.loadCharacters()
         }
@@ -52,11 +56,38 @@ struct HomeView: View {
 
     @ViewBuilder
     private var loadingView: some View {
-        VStack {
-            Spacer()
-            ProgressView()
-                .tint(Color.emberPrimary)
-            Spacer()
+        ScrollView {
+            VStack(spacing: .emberSpacing24) {
+                // Greeting skeleton
+                VStack(alignment: .leading, spacing: .emberSpacing4) {
+                    ShimmerView(cornerRadius: .emberRadius4)
+                        .frame(width: 180, height: 22)
+                    ShimmerView(cornerRadius: .emberRadius4)
+                        .frame(width: 140, height: 13)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Daily summary skeleton
+                ShimmerView(cornerRadius: .emberRadius20)
+                    .frame(height: 100)
+
+                // Character grid skeleton
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: .emberSpacing16),
+                        GridItem(.flexible(), spacing: .emberSpacing16)
+                    ],
+                    spacing: .emberSpacing16
+                ) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        ShimmerView(cornerRadius: .emberRadius20)
+                            .frame(height: 160)
+                    }
+                }
+            }
+            .padding(.horizontal, .emberSpacing20)
+            .padding(.top, .emberSpacing8)
+            .padding(.bottom, .emberSpacing32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -130,6 +161,13 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 10)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.4)) {
+                hasAppeared = true
+            }
+        }
     }
 
     @ViewBuilder

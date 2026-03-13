@@ -6,6 +6,7 @@ struct ProfileView: View {
     @Environment(AuthViewModel.self) private var authViewModel
     @State private var viewModel: ProfileViewModel
     @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showSaveSuccess: Bool = false
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
         _viewModel = State(initialValue: ProfileViewModel(apiClient: apiClient))
@@ -58,6 +59,8 @@ struct ProfileView: View {
                     Task { await viewModel.updateTimezone(timezone) }
                 }
             )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .photosPicker(
             isPresented: $viewModel.showPhotoPicker,
@@ -83,16 +86,42 @@ struct ProfileView: View {
                 Task { await authViewModel.signOut() }
             }
         }
+        .onChange(of: viewModel.didSaveSuccessfully) { _, didSave in
+            showSaveSuccess = didSave
+        }
     }
 
     // MARK: - Subviews
 
     @ViewBuilder
     private var loadingView: some View {
-        VStack {
+        VStack(spacing: .emberSpacing24) {
             Spacer()
-            ProgressView()
-                .tint(Color.emberPrimary)
+                .frame(height: .emberSpacing24)
+
+            // Avatar skeleton
+            Circle()
+                .fill(Color.emberSurface2)
+                .frame(width: 80, height: 80)
+                .shimmer()
+
+            // Name skeleton
+            ShimmerView(cornerRadius: .emberRadius4)
+                .frame(width: 120, height: 22)
+
+            // Email skeleton
+            ShimmerView(cornerRadius: .emberRadius4)
+                .frame(width: 160, height: 13)
+
+            // Settings rows skeleton
+            VStack(spacing: .emberSpacing8) {
+                ForEach(0..<3, id: \.self) { _ in
+                    ShimmerView(cornerRadius: .emberRadius12)
+                        .frame(height: 52)
+                }
+            }
+            .padding(.horizontal, .emberSpacing20)
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -139,6 +168,27 @@ struct ProfileView: View {
             .padding(.top, .emberSpacing24)
             .padding(.bottom, .emberSpacing32)
         }
+        .refreshable {
+            await viewModel.loadProfile()
+        }
+        .overlay(alignment: .top) {
+            if showSaveSuccess {
+                HStack(spacing: .emberSpacing8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.emberSuccess)
+                    Text("Saved")
+                        .font(.emberCaption)
+                        .foregroundStyle(Color.emberSuccess)
+                }
+                .padding(.horizontal, .emberSpacing16)
+                .padding(.vertical, .emberSpacing8)
+                .background(Color.emberSuccess.opacity(0.2))
+                .clipShape(Capsule())
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.top, .emberSpacing8)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showSaveSuccess)
     }
 
     // MARK: - Profile Header
@@ -154,6 +204,7 @@ struct ProfileView: View {
                     avatarImage(profile)
                         .frame(width: 80, height: 80)
                         .clipShape(Circle())
+                        .shadow(color: Color.emberPrimary.opacity(0.3), radius: 8, y: 2)
 
                     // Camera overlay
                     Image(systemName: "camera.fill")

@@ -94,6 +94,7 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val inputText by viewModel.inputText.collectAsStateWithLifecycle()
     val voiceState by viewModel.voiceState.collectAsStateWithLifecycle()
+    val audioPlaybackState by viewModel.audioPlaybackState.collectAsStateWithLifecycle()
     val isOnlineState by (networkMonitor?.isOnline ?: remember {
         kotlinx.coroutines.flow.MutableStateFlow(true)
     }).collectAsStateWithLifecycle()
@@ -131,11 +132,12 @@ fun ChatScreen(
         }
     }
 
-    // Cancel SSE stream when leaving the screen
+    // Cancel SSE stream and stop audio when leaving the screen
     DisposableEffect(Unit) {
         onDispose {
             viewModel.cancelStream()
             viewModel.cancelRecording()
+            viewModel.stopAudio()
         }
     }
 
@@ -168,7 +170,18 @@ fun ChatScreen(
                     is ChatUiState.Success -> {
                         ChatContent(
                             state = state,
+                            audioPlaybackState = audioPlaybackState,
                             onLoadMore = viewModel::loadMoreMessages,
+                            onListenClick = viewModel::requestTTS,
+                            onPlayPause = {
+                                val audio = audioPlaybackState
+                                if (audio is AudioPlaybackState.Playing) {
+                                    viewModel.pauseAudio()
+                                } else if (audio is AudioPlaybackState.Paused) {
+                                    viewModel.resumeAudio()
+                                }
+                            },
+                            onSpeedToggle = viewModel::cyclePlaybackSpeed,
                             modifier = Modifier.weight(1f),
                         )
                         ChatInputBar(
@@ -275,7 +288,11 @@ private fun ChatTopBar(
 @Composable
 private fun ChatContent(
     state: ChatUiState.Success,
+    audioPlaybackState: AudioPlaybackState,
     onLoadMore: () -> Unit,
+    onListenClick: (String) -> Unit,
+    onPlayPause: () -> Unit,
+    onSpeedToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -357,6 +374,11 @@ private fun ChatContent(
                 MessageBubble(
                     message = message,
                     characterName = state.characterName,
+                    audioPlaybackState = audioPlaybackState,
+                    isStreaming = state.isStreaming,
+                    onListenClick = onListenClick,
+                    onPlayPause = onPlayPause,
+                    onSpeedToggle = onSpeedToggle,
                 )
             }
         }

@@ -62,6 +62,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P05-03] iOS voice recording with hold-to-record mic button, waveform animation, S3 upload, and Whisper STT transcription
 - [P05-04] iOS TTS playback with Listen button on AI messages, AVPlayer progress bar, scrubber, and speed control
 - [P05-05] Android voice recording with hold-to-record mic button, waveform animation, S3 upload, and Whisper STT transcription
+- [P05-06] Android TTS playback with Listen button on AI messages, ExoPlayer Media3, progress bar, and speed control
 
 ---
 

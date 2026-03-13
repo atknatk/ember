@@ -11,12 +11,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,6 +63,11 @@ import ai.ember.app.core.ui.theme.EmberTextSecondary
 fun MessageBubble(
     message: ChatMessage,
     characterName: String,
+    audioPlaybackState: AudioPlaybackState = AudioPlaybackState.Idle,
+    isStreaming: Boolean = false,
+    onListenClick: (String) -> Unit = {},
+    onPlayPause: () -> Unit = {},
+    onSpeedToggle: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.role == MessageRole.USER
@@ -120,15 +132,83 @@ fun MessageBubble(
                             vertical = EmberSpacing.xs,
                         ),
                 ) {
-                    Text(
-                        text = message.content,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (isUser) {
-                            Color.White
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    )
+                    Column {
+                        Text(
+                            text = message.content,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (isUser) {
+                                Color.White
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+
+                        // TTS controls for AI messages
+                        if (!isUser && message.content.isNotEmpty() && !isStreaming) {
+                            val isThisMessageAudio = isAudioStateForMessage(
+                                audioPlaybackState,
+                                message.id,
+                            )
+
+                            when {
+                                isThisMessageAudio &&
+                                    audioPlaybackState is AudioPlaybackState.Loading -> {
+                                    AudioProgressBarLoading()
+                                }
+
+                                isThisMessageAudio &&
+                                    audioPlaybackState is AudioPlaybackState.Playing -> {
+                                    AudioProgressBar(
+                                        isPlaying = true,
+                                        currentMs = audioPlaybackState.currentMs,
+                                        durationMs = audioPlaybackState.durationMs,
+                                        speed = audioPlaybackState.speed,
+                                        onPlayPause = onPlayPause,
+                                        onSpeedToggle = onSpeedToggle,
+                                    )
+                                }
+
+                                isThisMessageAudio &&
+                                    audioPlaybackState is AudioPlaybackState.Paused -> {
+                                    AudioProgressBar(
+                                        isPlaying = false,
+                                        currentMs = audioPlaybackState.currentMs,
+                                        durationMs = audioPlaybackState.durationMs,
+                                        speed = audioPlaybackState.speed,
+                                        onPlayPause = onPlayPause,
+                                        onSpeedToggle = onSpeedToggle,
+                                    )
+                                }
+
+                                else -> {
+                                    // Listen button
+                                    Spacer(Modifier.height(EmberSpacing.xxs))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                view.performHapticFeedback(
+                                                    HapticFeedbackConstants.CONTEXT_CLICK,
+                                                )
+                                                onListenClick(message.id)
+                                            },
+                                            modifier = Modifier.size(LISTEN_BUTTON_SIZE),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.VolumeUp,
+                                                contentDescription = stringResource(
+                                                    R.string.tts_listen,
+                                                ),
+                                                tint = EmberTextSecondary,
+                                                modifier = Modifier.size(LISTEN_ICON_SIZE),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Timestamp
@@ -212,6 +292,22 @@ private fun copyToClipboard(context: Context, text: String) {
     clipboard.setPrimaryClip(clip)
 }
 
+/**
+ * Checks if the given audio state belongs to a specific message.
+ */
+private fun isAudioStateForMessage(
+    state: AudioPlaybackState,
+    messageId: String,
+): Boolean = when (state) {
+    is AudioPlaybackState.Loading -> state.messageId == messageId
+    is AudioPlaybackState.Playing -> state.messageId == messageId
+    is AudioPlaybackState.Paused -> state.messageId == messageId
+    is AudioPlaybackState.Error -> state.messageId == messageId
+    is AudioPlaybackState.Idle -> false
+}
+
+private val LISTEN_BUTTON_SIZE = 32.dp
+private val LISTEN_ICON_SIZE = 18.dp
 private const val MAX_BUBBLE_WIDTH_FRACTION = 0.75f
 private const val TIMESTAMP_START_INDEX = 11
 private const val TIMESTAMP_END_INDEX = 16

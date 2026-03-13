@@ -250,6 +250,41 @@ class ChatRepository @Inject constructor(
         }
     }
 
+    /**
+     * Requests TTS synthesis for the given text and character.
+     *
+     * Calls POST /api/v1/tts and returns the audio URL and optional duration.
+     *
+     * @param text The message text to synthesize.
+     * @param characterId The character ID for voice selection.
+     * @return [Result] with [TTSResponse] on success.
+     */
+    suspend fun requestTTS(text: String, characterId: String): Result<TTSResponse> {
+        return try {
+            val response = voiceApi.synthesizeSpeech(
+                TTSRequest(text = text, characterId = characterId),
+            )
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) {
+                    Result.success(body)
+                } else {
+                    Result.failure(ChatException("Failed to generate audio."))
+                }
+            } else {
+                val errorMessage = parseErrorMessage(
+                    response.errorBody()?.string(),
+                    response.code(),
+                )
+                Result.failure(ChatException(errorMessage))
+            }
+        } catch (e: Exception) {
+            Result.failure(
+                ChatException("Could not generate audio. Please check your internet."),
+            )
+        }
+    }
+
     private fun parseErrorMessage(errorBody: String?, statusCode: Int): String {
         val detail = parseDetail(errorBody)
         return when (statusCode) {

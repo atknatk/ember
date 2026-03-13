@@ -24,6 +24,11 @@ interface VoiceApi {
     suspend fun transcribeAudio(
         @Body request: STTRequest,
     ): Response<STTResponse>
+
+    @POST("api/v1/tts")
+    suspend fun synthesizeSpeech(
+        @Body request: TTSRequest,
+    ): Response<TTSResponse>
 }
 
 // -- Request/Response models --
@@ -51,5 +56,19 @@ data class STTResponse(
     val transcript: String,
     val language: String,
     val confidence: Float,
+    @SerialName("duration_seconds") val durationSeconds: Float? = null,
+)
+
+@Serializable
+data class TTSRequest(
+    val text: String,
+    @SerialName("character_id") val characterId: String,
+    @SerialName("voice_id") val voiceId: String? = null,
+    val language: String = "en",
+)
+
+@Serializable
+data class TTSResponse(
+    @SerialName("audio_url") val audioUrl: String,
     @SerialName("duration_seconds") val durationSeconds: Float? = null,
 )

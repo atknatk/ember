@@ -28,6 +28,7 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val voiceRecorder: VoiceRecorder,
+    private val audioPlayerManager: AudioPlayerManager,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -42,6 +43,9 @@ class ChatViewModel @Inject constructor(
 
     /** Voice recording state — separate from chat UI state. */
     val voiceState: StateFlow<VoiceRecordingState> = voiceRecorder.state
+
+    /** Audio playback state for TTS — separate from chat UI state. */
+    val audioPlaybackState: StateFlow<AudioPlaybackState> = audioPlayerManager.playbackState
 
     private var streamJob: Job? = null
 
@@ -260,6 +264,96 @@ class ChatViewModel @Inject constructor(
      */
     fun dismissVoiceError() {
         voiceRecorder.reset()
+    }
+
+    // -- TTS Playback --
+
+    /**
+     * Requests TTS synthesis for the given message and starts playback.
+     *
+     * Flow: set loading -> POST /api/v1/tts -> play audio via ExoPlayer.
+     * If the message is already playing, toggles pause/resume instead.
+     *
+     * @param messageId The ID of the AI message to synthesize.
+     */
+    fun requestTTS(messageId: String) {
+        val currentState = audioPlayerManager.playbackState.value
+
+        // If this message is already playing, pause it
+        if (currentState is AudioPlaybackState.Playing && currentState.messageId == messageId) {
+            audioPlayerManager.pause()
+            return
+        }
+
+        // If this message is paused, resume it
+        if (currentState is AudioPlaybackState.Paused && currentState.messageId == messageId) {
+            audioPlayerManager.resume()
+            return
+        }
+
+        // If already loading this message, ignore
+        if (currentState is AudioPlaybackState.Loading && currentState.messageId == messageId) {
+            return
+        }
+
+        // Find the message content
+        val state = _uiState.value as? ChatUiState.Success ?: return
+        val message = state.messages.find { it.id == messageId } ?: return
+        if (message.content.isEmpty()) return
+
+        audioPlayerManager.setLoading(messageId)
+
+        viewModelScope.launch {
+            chatRepository.requestTTS(message.content, characterId)
+                .onSuccess { ttsResponse ->
+                    audioPlayerManager.play(ttsResponse.audioUrl, messageId)
+                }
+                .onFailure {
+                    audioPlayerManager.stop()
+                }
+        }
+    }
+
+    /**
+     * Pauses TTS audio playback.
+     */
+    fun pauseAudio() {
+        audioPlayerManager.pause()
+    }
+
+    /**
+     * Resumes TTS audio playback.
+     */
+    fun resumeAudio() {
+        audioPlayerManager.resume()
+    }
+
+    /**
+     * Stops TTS audio playback.
+     */
+    fun stopAudio() {
+        audioPlayerManager.stop()
+    }
+
+    /**
+     * Cycles the TTS playback speed to the next option.
+     *
+     * Order: 0.75x -> 1x -> 1.25x -> 1.5x -> 0.75x
+     */
+    fun cyclePlaybackSpeed() {
+        val currentState = audioPlayerManager.playbackState.value
+        val currentSpeed = when (currentState) {
+            is AudioPlaybackState.Playing -> currentState.speed
+            is AudioPlaybackState.Paused -> currentState.speed
+            else -> return
+        }
+        val currentIndex = TTS_SPEED_OPTIONS.indexOf(currentSpeed)
+        val nextIndex = if (currentIndex >= 0) {
+            (currentIndex + 1) % TTS_SPEED_OPTIONS.size
+        } else {
+            TTS_SPEED_OPTIONS.indexOf(1.0f)
+        }
+        audioPlayerManager.setSpeed(TTS_SPEED_OPTIONS[nextIndex])
     }
 
     private fun handleSseEvent(event: SseEvent) {

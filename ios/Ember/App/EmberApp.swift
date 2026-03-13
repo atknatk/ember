@@ -5,6 +5,7 @@ struct EmberApp: App {
     @State private var router = AppRouter()
     @State private var container = AppContainer()
     @State private var authViewModel = AuthViewModel()
+    @State private var networkMonitor = NetworkMonitor()
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
@@ -44,7 +45,11 @@ struct EmberApp: App {
             .environment(router)
             .environment(container)
             .environment(authViewModel)
+            .environment(networkMonitor)
             .preferredColorScheme(.dark)
+            .onAppear {
+                networkMonitor.start()
+            }
         }
     }
 }

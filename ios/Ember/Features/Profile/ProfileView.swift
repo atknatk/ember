@@ -4,6 +4,7 @@ import Kingfisher
 
 struct ProfileView: View {
     @Environment(AuthViewModel.self) private var authViewModel
+    @Environment(NetworkMonitor.self) private var networkMonitor
     @State private var viewModel: ProfileViewModel
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showSaveSuccess: Bool = false
@@ -28,16 +29,18 @@ struct ProfileView: View {
         .task {
             await viewModel.loadProfile()
         }
-        .alert("Error", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-            Button("Retry") {
-                Task { await viewModel.loadProfile() }
+        .overlay(alignment: .top) {
+            VStack(spacing: .emberSpacing4) {
+                OfflineBannerView(isOffline: !networkMonitor.isConnected)
+
+                ErrorBannerView(
+                    error: viewModel.currentError,
+                    onDismiss: { viewModel.dismissError() },
+                    onRetry: { Task { await viewModel.loadProfile() } }
+                )
             }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
+            .animation(.easeInOut(duration: 0.3), value: viewModel.currentError)
+            .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
         }
         .alert("Delete Account", isPresented: $viewModel.showDeleteConfirmation) {
             TextField("Type DELETE MY ACCOUNT", text: $viewModel.deleteConfirmationText)

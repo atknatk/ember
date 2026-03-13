@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MemoriesView: View {
+    @Environment(NetworkMonitor.self) private var networkMonitor
     @State private var viewModel: MemoriesViewModel
     @Namespace private var namespace
 
@@ -39,13 +40,18 @@ struct MemoriesView: View {
         } message: {
             Text("This memory will be permanently removed. This action cannot be undone.")
         }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK", role: .cancel) {}
-            Button("Retry") {
-                Task { await viewModel.loadMemories() }
+        .overlay(alignment: .top) {
+            VStack(spacing: .emberSpacing4) {
+                OfflineBannerView(isOffline: !networkMonitor.isConnected)
+
+                ErrorBannerView(
+                    error: viewModel.currentError,
+                    onDismiss: { viewModel.dismissError() },
+                    onRetry: { Task { await viewModel.loadMemories() } }
+                )
             }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
+            .animation(.easeInOut(duration: 0.3), value: viewModel.currentError)
+            .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
         }
     }
 

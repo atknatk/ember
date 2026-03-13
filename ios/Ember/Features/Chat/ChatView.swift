@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ChatView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(NetworkMonitor.self) private var networkMonitor
     @State private var viewModel: ChatViewModel
 
     init(characterId: String, characterName: String = "", service: ChatServiceProtocol = ChatService()) {
@@ -31,13 +32,20 @@ struct ChatView: View {
         .task {
             await viewModel.loadHistory()
         }
-        .alert("Error", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.dismissError() } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(viewModel.errorMessage ?? "")
+        .overlay(alignment: .top) {
+            VStack(spacing: .emberSpacing4) {
+                OfflineBannerView(isOffline: !networkMonitor.isConnected)
+
+                ErrorBannerView(
+                    error: viewModel.currentError,
+                    onDismiss: { viewModel.dismissError() },
+                    onRetry: viewModel.currentError?.isRetryable == true
+                        ? { Task { await viewModel.loadHistory() } }
+                        : nil
+                )
+            }
+            .animation(.easeInOut(duration: 0.3), value: viewModel.currentError)
+            .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
         }
     }
 

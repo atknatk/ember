@@ -69,6 +69,7 @@ final class ChatViewModel {
     var isLoadingHistory: Bool = false
     var isLoadingMore: Bool = false
     var errorMessage: String? = nil
+    var currentError: EmberError? = nil
     var characterName: String
 
     // MARK: - Pagination State
@@ -140,7 +141,9 @@ final class ChatViewModel {
             nextCursor = response.nextCursor
             hasMore = response.hasMore
         } catch {
-            errorMessage = error.localizedDescription
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
         }
 
         isLoadingHistory = false
@@ -220,26 +223,33 @@ final class ChatViewModel {
 
                 case .error(let message):
                     removeLastAssistantIfEmpty()
+                    let emberError = EmberError.unknown(message)
+                    currentError = emberError
                     errorMessage = message
                     HapticManager.notification(.error)
 
                 case .moderation(let message):
                     removeLastAssistantIfEmpty()
+                    let emberError = EmberError.unknown(message)
+                    currentError = emberError
                     errorMessage = message
                 }
             }
         } catch {
             removeLastAssistantIfEmpty()
-            errorMessage = error.localizedDescription
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
             HapticManager.notification(.error)
         }
 
         isStreaming = false
     }
 
-    /// Dismisses the current error alert.
+    /// Dismisses the current error banner.
     func dismissError() {
         errorMessage = nil
+        currentError = nil
     }
 
     // MARK: - Private Helpers

@@ -97,6 +97,13 @@ class Settings(BaseSettings):
     health_check_timeout: float = 3.0
     health_check_degraded_threshold: float = 1.0
 
+    # Content Moderation
+    moderation_enabled: bool = True
+    moderation_fail_open: bool = True
+    moderation_abuse_window_hours: int = 24
+    moderation_block_duration_short_minutes: int = 15
+    moderation_block_duration_long_minutes: int = 60
+
     # Observability — Logging
     log_request_body: bool = False
 

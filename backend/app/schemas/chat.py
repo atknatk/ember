@@ -119,3 +119,10 @@ class ErrorEvent(BaseModel):
 
     type: str = "error"
     message: str
+
+
+class ModerationSSEEvent(BaseModel):
+    """SSE moderation event — signals crisis augmentation was applied (therapist only)."""
+
+    type: str = "moderation"
+    message: str

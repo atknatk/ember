@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Used by XML themes only — Compose uses Color.kt tokens -->
+    <color name="ember_background">#FF0F0F14</color>
+    <color name="ember_surface">#FF1A1A24</color>
+    <color name="ember_primary">#FF5B4FE8</color>
+</resources>

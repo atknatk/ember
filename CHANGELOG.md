@@ -58,6 +58,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P04-08] Android design polish with shimmer skeletons, card elevation, scale button effects, and micro-interactions
 - [P04-09] Android error handling with EmberError sealed class, error banners, network monitor, offline detection, and retry logic
 - [P05-01] Backend TTS service with ElevenLabs Flash v2.5 primary and AWS Polly fallback, circuit breaker, and S3 audio caching
+- [P05-02] Backend STT endpoint with OpenAI Whisper transcription, S3 audio download, format validation, and confidence scoring
 
 ---
 

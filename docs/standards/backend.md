@@ -65,6 +65,7 @@ backend/
       auth_service.py
       character_service.py
       chat_service.py        # Message send + streaming + history
+      content_moderation.py  # Content moderation pipeline
       health_service.py
       media_service.py
       memory_service.py
@@ -85,6 +86,8 @@ backend/
       character.py
       conversation.py
       message.py
+      moderation_event.py    # Content moderation audit log
+      user_moderation_state.py  # Per-user abuse escalation
     schemas/
       __init__.py
       auth.py
@@ -93,6 +96,8 @@ backend/
       memory.py
       onboarding.py
       media.py
+      health.py              # Health check response schemas
+      profile.py             # Profile CRUD schemas
     utils/
       __init__.py
       cursor.py              # Cursor encode/decode helpers

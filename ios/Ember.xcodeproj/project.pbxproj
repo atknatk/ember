@@ -19,6 +19,9 @@
 		300257909CDA83CF8660B4A4 /* CGFloatEmberTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF3017B8F108F3ED8B98E22C /* CGFloatEmberTests.swift */; };
 		372E163A4CFA3697879E0690 /* AppRouterExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39478E0BBDE4B5636BFAD31 /* AppRouterExtendedTests.swift */; };
 		3C98AD605834C1198381A821 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BD72A91A1B9E392734DFC8 /* APIClientTests.swift */; };
+		554BF60B2ACB43D8AF402283 /* APIClientExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C1118857CB45D3BF7C4A19 /* APIClientExtendedTests.swift */; };
+		D0A9B996D0ED42A2869ED242 /* APIEndpointExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807949528CA340B0AB108537 /* APIEndpointExtendedTests.swift */; };
+		CD35EEC2CAFD467E947BFA62 /* SSEClientExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393CDC80CDBF40268B399874 /* SSEClientExtendedTests.swift */; };
 		3F6CB064F2B0AA442F8E769B /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 732AC44584E11B3F74B8BE6B /* Lottie */; };
 		48340107741183DF7B748D49 /* ProfilePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE640A22C54BB327A48C95EE /* ProfilePlaceholderView.swift */; };
 		48C96AEB074744ACF55D83F8 /* ColorEmberTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E902162574E0CED1B25D40 /* ColorEmberTests.swift */; };
@@ -66,6 +69,9 @@
 		0C36E5D731703C92F96B5E5F /* EmberSymbolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmberSymbolTests.swift; sourceTree = "<group>"; };
 		21070CEF6687451F4EBB49EF /* APIErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIErrorTests.swift; sourceTree = "<group>"; };
 		21BD72A91A1B9E392734DFC8 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
+		43C1118857CB45D3BF7C4A19 /* APIClientExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientExtendedTests.swift; sourceTree = "<group>"; };
+		807949528CA340B0AB108537 /* APIEndpointExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpointExtendedTests.swift; sourceTree = "<group>"; };
+		393CDC80CDBF40268B399874 /* SSEClientExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEClientExtendedTests.swift; sourceTree = "<group>"; };
 		22A9D0981F6D1785703F117D /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoint.swift; sourceTree = "<group>"; };
 		27E89CEA7AB9FAB9F0509296 /* JSONCoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONCoding.swift; sourceTree = "<group>"; };
 		3523A7539126172C7C5BAC14 /* LoginPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginPlaceholderView.swift; sourceTree = "<group>"; };
@@ -164,8 +170,11 @@
 			isa = PBXGroup;
 			children = (
 				21BD72A91A1B9E392734DFC8 /* APIClientTests.swift */,
+				43C1118857CB45D3BF7C4A19 /* APIClientExtendedTests.swift */,
 				C12E6C3943FFBAEA963EEED7 /* APIEndpointTests.swift */,
+				807949528CA340B0AB108537 /* APIEndpointExtendedTests.swift */,
 				EE9E42903510312D39F15064 /* SSEClientTests.swift */,
+				393CDC80CDBF40268B399874 /* SSEClientExtendedTests.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -457,7 +466,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				3C98AD605834C1198381A821 /* APIClientTests.swift in Sources */,
+				554BF60B2ACB43D8AF402283 /* APIClientExtendedTests.swift in Sources */,
 				ACC0A3867AE871060A59E1FB /* APIEndpointTests.swift in Sources */,
+				D0A9B996D0ED42A2869ED242 /* APIEndpointExtendedTests.swift in Sources */,
 				4D69EB39B7E0C3046229D3A0 /* APIErrorTests.swift in Sources */,
 				8C8A47C69B5886FBAC2FDEBE /* AppContainerTests.swift in Sources */,
 				372E163A4CFA3697879E0690 /* AppRouterExtendedTests.swift in Sources */,
@@ -472,6 +483,7 @@
 				885270C7195D746767F5B5C2 /* MockAuthService.swift in Sources */,
 				0AF4BAD54673E0878F0BC0F6 /* MockURLProtocol.swift in Sources */,
 				646AB90D9519FA1958F818E2 /* SSEClientTests.swift in Sources */,
+				CD35EEC2CAFD467E947BFA62 /* SSEClientExtendedTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

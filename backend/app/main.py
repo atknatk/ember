@@ -33,7 +33,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_sentry()
     setup_logging(log_level=settings.log_level, debug=settings.debug)
     logger.info("Ember API starting up")
+
+    # Initialize Firebase Admin SDK
+    if settings.firebase_credentials_json:
+        from app.services.notification_sender import initialize_firebase
+
+        try:
+            initialize_firebase(settings.firebase_credentials_json)
+        except Exception:
+            logger.exception("Firebase initialization failed — notifications disabled")
+
+    # Start notification scheduler
+    scheduler = None
+    if settings.notification_scheduler_enabled:
+        try:
+            from app.services.notification_scheduler import start_notification_scheduler
+
+            scheduler = await start_notification_scheduler()
+            app.state.scheduler = scheduler
+        except Exception:
+            logger.exception("Notification scheduler failed to start")
+
     yield
+
+    # Shutdown scheduler
+    if scheduler is not None:
+        try:
+            await scheduler.stop()
+            logger.info("Notification scheduler shut down")
+        except Exception:
+            logger.exception("Error shutting down notification scheduler")
+
     logger.info("Ember API shutting down")
     await engine.dispose()
 

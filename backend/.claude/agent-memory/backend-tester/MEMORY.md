@@ -63,6 +63,34 @@
 - `get_path_params`, `extract_required_fields`, `resolve_ref` are all importable from `scripts.validate_openapi`
 - `main()` CLI entry points are intentionally left uncovered -- subprocess testing adds fragility
 
+## Activity Tracking Middleware Test Patterns
+- Mock path for middleware unit tests: `app.middleware.activity_tracking.update_user_activity`
+- Mock path for service unit tests: `app.services.activity_service.AsyncSessionLocal`
+- `_mock_session_factory(session_mock)` helper creates a MagicMock ctx with `__aenter__`/`__aexit__` AsyncMock
+- BackgroundTask chaining: when `response.background` is already a `BackgroundTasks` (plural) instance, the implementation appends via `tasks.tasks.append()` — test by asserting both the original task AND the activity task execute
+- `caplog.at_level(logging.WARNING, logger="ember")` works directly for `logging.getLogger("ember")` calls in activity_service (no custom handler needed — caplog captures stdlib logging)
+- `now` in service SQL params is a timezone-aware `datetime` object; verify with `isinstance(params["now"], datetime)` and `params["now"].tzinfo is not None`
+
+## Content Moderation Test Patterns
+- `ChatService._llm_router` is a `@property` — use `ChatService(db, llm_router=mock_router)` constructor param instead of `patch.object(service, "_llm_router")`
+- Rolling window boundary tests: "exactly 24h ago" is unreliable because `datetime.now()` inside the function advances microseconds. Use 23h59m (clearly in-window) and 24h+1s (clearly expired) instead
+- `MagicMock` datetime arithmetic returns truthy MagicMock — use real `UserModerationState` objects when testing datetime subtraction in `_update_abuse_state`
+- `_record_violation_background` uses a custom `MockSession` class (not AsyncMock) to capture `db.add()` objects for `isinstance(obj, ModerationEvent)` checks
+- `prompt_injection` and `length_exceeded` event types do NOT call `_update_abuse_state`; only `harmful_content` and `abuse_block` do
+- Pydantic validates content length (max_length=4000) before the route handler — a 4001-char HTTP request returns 422, not 400. Service-layer 400 only reachable via direct calls.
+
+## Notification Scheduler Test Patterns
+- `evaluate_notification_triggers` is a pure function — test directly, no mocks needed
+- Mock `app.services.notification_scheduler._search_mem0` for Mem0 tests (not the MemoryClient directly)
+- Mock `app.services.notification_scheduler.get_llm_router` for Claude tests
+- Mock `app.services.notification_sender.messaging.send` for FCM tests
+- Mock `app.services.notification_scheduler.AsyncSessionLocal` for DB session tests
+- `run_notification_cycle(now_utc=...)` and `reset_notifications_sent_today(now_utc=...)` accept optional override for deterministic time testing
+- DST hazard: America/New_York is UTC-4 (not UTC-5) from mid-March onward due to DST — always verify UTC offset at the specific test date using `ZoneInfo` and `astimezone`
+- `_search_mem0` direct body (lines 525-526) is always mocked via `asyncio.to_thread` in unit tests — unreachable without real Mem0 credentials; this is acceptable
+- `firebase_admin.exceptions.InvalidArgumentError` (not `messaging.InvalidArgumentError`) is the correct import for the invalid-token error class
+- APScheduler 4.x uses `stop()` not `shutdown()` for graceful teardown
+
 ## Circuit Breaker Test Patterns
 - Reset singleton between tests: conftest.py autouse fixture sets `app.core.circuit_breaker._breaker = None`
 - Save and restore original `cb_module._breaker` in each test that injects a custom instance (`original = cb_module._breaker; cb_module._breaker = ...; try/finally`)

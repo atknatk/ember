@@ -69,6 +69,8 @@ backend/
       health_service.py
       media_service.py
       memory_service.py
+      notification_scheduler.py  # APScheduler cron jobs for proactive notifications
+      notification_sender.py     # Firebase FCM push notification delivery
       onboarding_service.py
       profile_service.py
       llm/                   # Multi-provider LLM package
@@ -946,6 +948,11 @@ class Settings(BaseSettings):
 
     # Push Notifications
     firebase_credentials_json: str = ""
+
+    # Notification Scheduler
+    notification_scheduler_enabled: bool = True
+    notification_scheduler_interval_minutes: int = 30
+    notification_batch_size: int = 100
 
     # Rate Limiting (requests per minute per user)
     rate_limit_chat: int = 10

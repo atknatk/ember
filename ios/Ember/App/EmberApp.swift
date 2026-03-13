@@ -22,7 +22,7 @@ struct EmberApp: App {
                         LoginView()
                     }
                 } else if !hasCompletedOnboarding {
-                    OnboardingPlaceholderView()
+                    OnboardingFlowView()
                 } else {
                     MainTabView()
                 }

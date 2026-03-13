@@ -64,9 +64,40 @@
 - Backend-tester created SEPARATE `_extended.py` file (consistent pattern)
 - 137 total tests at 100% line + branch coverage
 
+## FCM Push Service Review Notes
+- Two endpoints: PUT and DELETE /api/v1/notifications/token (router prefix in main.py)
+- Routes do simple CRUD directly (no service layer needed for token registration)
+- NotificationService wraps `send_push_notification` with user lookup + dead token cleanup
+- `_clear_token` uses `except Exception` with `logger.exception()` -- errors don't propagate
+- `SendResult` is a class with string constants (SENT, INVALID_TOKEN, TRANSIENT_ERROR), not an enum
+- Backend-tester created SEPARATE `_extended.py` files (consistent pattern)
+- 67 total tests at 100% coverage
+
+## iOS Cognito Auth Review Notes
+- Auth goes through backend REST endpoints (not Amplify SDK) -- correct per spec
+- AuthService makes own URLSession calls to avoid circular dependency with APIClient
+- AuthViewModel is the reactive bridge (AuthService is @unchecked Sendable, not @Observable)
+- KeychainTokenStore uses Security framework with kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+- `@AppStorage("isAuthenticated")` fully replaced by AuthViewModel.isAuthenticated
+- LoginPlaceholderView deleted, replaced by real LoginView + SignUpView
+- MockAuthService and MockURLProtocol used for testing
+- Force unwrap on URL literal `URL(string: "https://api.ember.ai")!` is acceptable (known-valid, after ?? fallback)
+- 45 total tests across 3 test files
+
+## iOS Grep Checks to Always Run
+1. `ObservableObject|@Published|@StateObject` in `ios/Ember/` (forbidden)
+2. `NavigationView` in `ios/Ember/` (forbidden)
+3. `UserDefaults` in `ios/Ember/Core/Auth/` (forbidden -- use Keychain)
+4. `api_key\s*=\s*['"]|secret\s*=\s*['"]` (no hardcoded secrets)
+5. `Amplify|AWSCognito` in `ios/Ember/` (no Amplify imports in production code)
+6. `print(` in `ios/Ember/` (use logging/os_log instead)
+7. `\)!` for force unwraps -- verify each is on a known-valid literal
+
 ## Completed Reviews
 - P01-05 character-crud (backend layer): APPROVED 2026-02-23, 0 issues found
 - P01-06 chat-streaming (backend layer): APPROVED 2026-02-24, 0 issues found, 130 tests at 100% coverage
 - P01-08 memory-endpoints (backend layer): APPROVED 2026-02-24, 0 issues found, 110 tests at 100% coverage
 - P01-09 onboarding-endpoint (backend layer): APPROVED 2026-02-24, 0 issues found, 131 tests at 100% coverage
 - P01-10 media-upload (backend layer): APPROVED 2026-02-24, 0 issues found, 137 tests at 100% coverage
+- P02-03 fcm-push-service (backend layer): APPROVED 2026-03-13, 0 issues found, 67 tests at 100% coverage
+- P03-03 ios-cognito-auth (ios layer): APPROVED 2026-03-13, 0 issues found, 45 tests, 2 warnings

@@ -23,6 +23,18 @@
     <string name="home_add_character_a11y">Add a new character</string>
     <string name="home_new_message">new message</string>
 
+    <!-- Chat Screen -->
+    <string name="chat_navigate_back">Go back</string>
+    <string name="chat_input_placeholder">Message…</string>
+    <string name="chat_send_message">Send message</string>
+    <string name="chat_attach_photo">Attach photo, coming soon</string>
+    <string name="chat_voice_message">Voice message, coming soon</string>
+    <string name="chat_copy">Copy</string>
+    <string name="chat_retry">Retry</string>
+    <string name="chat_typing_indicator">AI is typing</string>
+    <string name="chat_message_you">You</string>
+    <string name="chat_message_a11y">%1$s message: %2$s</string>
+
     <!-- Placeholder Screens -->
     <string name="placeholder_chat">Chat — Coming Soon</string>
     <string name="placeholder_create_character">Create Character — Coming Soon</string>

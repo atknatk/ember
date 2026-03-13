@@ -29,6 +29,7 @@ import ai.ember.app.features.auth.AuthViewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.compose.ui.res.stringResource
+import ai.ember.app.features.chat.ChatScreen
 import ai.ember.app.features.home.HomeScreen
 import ai.ember.app.features.memories.MemoriesScreen
 import ai.ember.app.features.onboarding.OnboardingScreen
@@ -157,19 +158,9 @@ fun EmberNavHost() {
                 enterTransition = { fadeIn() },
                 exitTransition = { fadeOut() },
             ) {
-                // Chat screen placeholder — will be implemented in a future feature
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(EmberSpacing.lg),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource(R.string.placeholder_chat),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
+                ChatScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                )
             }
             composable(
                 route = Screen.CreateCharacter.route,

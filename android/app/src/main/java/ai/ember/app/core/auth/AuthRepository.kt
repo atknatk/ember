@@ -50,6 +50,7 @@ class AuthRepository @Inject constructor(
                         refreshToken = body.refreshToken,
                     )
                     tokenManager.setOnboardingCompleted(body.user.onboardingCompleted)
+                    tokenManager.saveUserName(body.user.name)
                     Result.success(body)
                 } else {
                     Result.failure(AuthException("Something went wrong. Please try again."))
@@ -82,6 +83,7 @@ class AuthRepository @Inject constructor(
                         refreshToken = body.refreshToken,
                     )
                     tokenManager.setOnboardingCompleted(body.user.onboardingCompleted)
+                    tokenManager.saveUserName(body.user.name)
                     Result.success(body)
                 } else {
                     Result.failure(AuthException("Something went wrong. Please try again."))
@@ -107,6 +109,9 @@ class AuthRepository @Inject constructor(
 
     /** Returns the stored access token, or null. */
     fun getAccessToken(): String? = tokenManager.getAccessToken()
+
+    /** Returns the stored user display name, or empty string. */
+    fun getUserName(): String = tokenManager.getUserName()
 
     /**
      * Refreshes the access token using the stored refresh token.

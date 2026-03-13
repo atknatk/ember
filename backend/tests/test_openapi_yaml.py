@@ -195,7 +195,7 @@ class TestContentCompleteness:
         )
 
     def test_endpoint_count(self) -> None:
-        """The spec must document all 20 endpoint+method combinations."""
+        """The spec must document all endpoint+method combinations."""
         root = _load_root_spec()
         paths = _load_all_paths(root)
 
@@ -205,7 +205,7 @@ class TestContentCompleteness:
                 if isinstance(op, dict):
                     count += 1
 
-        assert count == 23, f"Expected 23 endpoints, found {count}"
+        assert count == 24, f"Expected 24 endpoints, found {count}"
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ class TestRootSpec:
         tag_names = {t["name"] for t in root.get("tags", [])}
         expected = {
             "health", "auth", "characters", "chat",
-            "memories", "media", "notifications", "onboarding", "profile", "tts",
+            "memories", "media", "notifications", "onboarding", "profile", "tts", "stt",
         }
         assert tag_names == expected, f"Missing tags: {expected - tag_names}"
 

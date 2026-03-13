@@ -35,6 +35,8 @@ tags:
     description: User profile management
   - name: tts
     description: Text-to-speech audio generation
+  - name: stt
+    description: Speech-to-text transcription
 
 security:
   - bearerAuth: []
@@ -91,3 +93,6 @@ paths:
 
   /tts:
     $ref: "paths/tts.yaml#/~1tts"
+
+  /stt:
+    $ref: "paths/stt.yaml#/~1stt"

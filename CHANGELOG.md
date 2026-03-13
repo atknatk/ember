@@ -48,6 +48,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P03-09] iOS Profile View with user info, preferences, notification toggles, sign out, and account deletion
 - [P03-10] iOS design polish with shimmer skeletons, card shadows, scale button style, pull-to-refresh, and micro-interactions
 - [P03-11] iOS error handling with EmberError enum, error banners, network monitor, offline detection, and retry logic
+- [P04-01] Android scaffold with Jetpack Compose, Material 3 dark theme, bottom navigation, and design system tokens matching iOS
 
 ---
 

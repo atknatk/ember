@@ -26,4 +26,9 @@ enum EmberSymbol {
     // Chat-specific icons
     static let camera = "camera"
     static let copy = "doc.on.doc"
+
+    // Voice recording
+    static let microphoneSlash = "mic.slash.fill"
+    static let waveform = "waveform"
+    static let stopCircle = "stop.circle.fill"
 }

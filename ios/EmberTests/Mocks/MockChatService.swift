@@ -68,4 +68,34 @@ final class MockChatService: ChatServiceProtocol, @unchecked Sendable {
             }
         }
     }
+
+    // MARK: - Voice Recording Stubs
+
+    var stubbedUploadURLResponse: UploadURLResponse = UploadURLResponse(uploadUrl: "https://s3.example.com/upload", fileUrl: "https://s3.example.com/file.m4a")
+    var stubbedSTTResponse: STTResponse = STTResponse(transcript: "Hello world", language: "en", confidence: 0.95, durationSeconds: 2.5)
+
+    var getUploadURLCallCount: Int = 0
+    var uploadFileCallCount: Int = 0
+    var transcribeAudioCallCount: Int = 0
+    var lastUploadURL: URL? = nil
+    var lastTranscribeRequest: STTRequest? = nil
+
+    func getUploadURL(request: UploadURLRequest) async throws -> UploadURLResponse {
+        getUploadURLCallCount += 1
+        if let error = shouldThrow { throw error }
+        return stubbedUploadURLResponse
+    }
+
+    func uploadFile(to url: URL, data: Data, contentType: String) async throws {
+        uploadFileCallCount += 1
+        lastUploadURL = url
+        if let error = shouldThrow { throw error }
+    }
+
+    func transcribeAudio(request: STTRequest) async throws -> STTResponse {
+        transcribeAudioCallCount += 1
+        lastTranscribeRequest = request
+        if let error = shouldThrow { throw error }
+        return stubbedSTTResponse
+    }
 }

@@ -33,23 +33,49 @@ Zero-memory sessions must follow every rule here without exception.
 ```
 backend/
   app/
-    main.py                  # FastAPI app factory, lifespan, CORS
+    main.py                  # FastAPI app factory, lifespan, CORS, middleware
     config.py                # Settings (pydantic-settings), reads env/secrets
-    dependencies.py          # Shared FastAPI Depends functions
+    dependencies.py          # Shared FastAPI Depends functions (get_db, get_current_user)
+    core/
+      __init__.py
+      auth.py                # CognitoJWKSProvider, verify_cognito_token
+      circuit_breaker.py     # Mem0 circuit breaker
+      logging.py             # Structured logging setup
+      rate_limit.py          # RateLimiter (grouped: chat/write/read)
+      sentry.py              # Sentry init
+    middleware/
+      __init__.py
+      rate_limit.py          # RateLimitMiddleware (ASGI)
+      request_id.py          # RequestIDMiddleware (X-Request-ID header)
     routes/
       __init__.py
       auth.py
       characters.py
       chat.py
+      health.py
+      media.py
       memories.py
-      voice.py
+      onboarding.py
+      profile.py
+      # voice.py — planned for Phase 3
     services/
       __init__.py
+      auth_service.py
       character_service.py
-      message_service.py
+      chat_service.py        # Message send + streaming + history
+      health_service.py
+      media_service.py
       memory_service.py
-      llm_service.py
-      voice_service.py
+      onboarding_service.py
+      profile_service.py
+      llm/                   # Multi-provider LLM package
+        __init__.py
+        provider.py          # LLMProvider ABC
+        anthropic_provider.py
+        openai_provider.py
+        router.py            # LLMRouter singleton
+        exceptions.py        # LLMProviderError
+      # voice_service.py — planned for Phase 3
     models/
       __init__.py
       base.py                # DeclarativeBase, TimestampMixin
@@ -59,14 +85,16 @@ backend/
       message.py
     schemas/
       __init__.py
+      auth.py
       character.py           # Request/Response Pydantic models
-      message.py
-      pagination.py
+      chat.py                # SendMessageRequest, MessageItem, SSE events
+      memory.py
+      onboarding.py
+      media.py
     utils/
       __init__.py
       cursor.py              # Cursor encode/decode helpers
-      streaming.py           # SSE helpers
-      cognito.py             # Token verification
+      timing.py              # log_external_call context manager
     db/
       session.py             # AsyncEngine, AsyncSessionLocal
       migrations/            # Alembic env + versions
@@ -92,36 +120,56 @@ backend/
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
+from app.core.rate_limit import RateLimiter
 from app.db.session import engine
-from app.models.base import Base
-from app.routes import auth, characters, chat, health, memories, voice
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_id import RequestIDMiddleware
+from app.routes import auth, characters, chat, health, media, memories, onboarding, profile
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup
+    # startup (Sentry, logging)
     yield
     # shutdown
     await engine.dispose()
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Ember API", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="Ember API", version=settings.app_version, lifespan=lifespan)
 
+    # Middleware (Starlette applies in reverse: last registered = outermost)
+    rate_limiter = RateLimiter(
+        group_limits={
+            "chat": settings.rate_limit_chat,     # 10/min
+            "write": settings.rate_limit_write,    # 20/min
+            "read": settings.rate_limit_read,      # 60/min
+        },
+        exempt_paths={"/api/v1/health"},
+    )
+    app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
+
+    origins = [o.strip() for o in settings.cors_origins.split(",")]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],          # tighten in prod via config
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RequestIDMiddleware)
 
+    # Route registration
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(characters.router, prefix="/api/v1/characters", tags=["characters"])
-    app.include_router(chat.router, prefix="/api/v1/characters", tags=["messages"])
-    app.include_router(memories.router, prefix="/api/v1", tags=["memories"])
-    app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"])
+    app.include_router(chat.router, prefix="/api/v1/characters", tags=["chat"])
+    app.include_router(memories.global_router, prefix="/api/v1", tags=["memories"])
+    app.include_router(memories.character_router, prefix="/api/v1/characters", tags=["memories"])
+    app.include_router(media.router, prefix="/api/v1/media", tags=["media"])
+    app.include_router(onboarding.router, prefix="/api/v1/onboarding", tags=["onboarding"])
+    app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
 
     return app
 
@@ -137,7 +185,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.dependencies import get_current_user, get_db
 from app.schemas.message import MessageRequest, MessageResponse, MessagePage
 from app.services.message_service import MessageService
-from app.models.user import User
+from app.models.profile import Profile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -147,7 +195,7 @@ router = APIRouter()
 async def send_message(
     character_id: str,
     body: MessageRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Profile = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponse:
     service = MessageService(db)
@@ -162,8 +210,8 @@ async def send_message(
 async def list_messages(
     character_id: str,
     cursor: str | None = None,
-    limit: int = 30,
-    current_user: User = Depends(get_current_user),
+    limit: int = 20,
+    current_user: Profile = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MessagePage:
     service = MessageService(db)
@@ -277,35 +325,39 @@ class MessageService:
 ### Request Schema
 
 ```python
-# app/schemas/message.py
+# app/schemas/chat.py
 from pydantic import BaseModel, Field, field_validator
-from typing import Literal
 
 
-class MessageRequest(BaseModel):
+class SendMessageRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
-    modality: Literal["text", "voice"] = "text"
+    media_url: str | None = Field(default=None, max_length=2048)
 
     @field_validator("content")
     @classmethod
     def strip_content(cls, v: str) -> str:
-        return v.strip()
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("Message content must not be empty after trimming whitespace")
+        return stripped
 ```
 
 ### Response Schema
 
 ```python
 from datetime import datetime
+from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 
-class MessageResponse(BaseModel):
+class MessageItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    conversation_id: str
-    role: Literal["user", "assistant"]
+    role: str
     content: str
+    media_url: str | None
+    metadata: dict[str, Any] | None
     created_at: datetime
 ```
 
@@ -315,8 +367,8 @@ class MessageResponse(BaseModel):
 from pydantic import BaseModel
 
 
-class MessagePage(BaseModel):
-    items: list[MessageResponse]
+class MessageListResponse(BaseModel):
+    items: list[MessageItem]
     next_cursor: str | None
     has_more: bool
 ```
@@ -332,48 +384,79 @@ class MessagePage(BaseModel):
 ## 5. Authentication — JWT / Cognito
 
 ```python
-# app/utils/cognito.py
+# app/core/auth.py
 import httpx
-from jose import JWTError, jwk, jwt
-from jose.utils import base64url_decode
+import time
+import uuid
+from jose import JWTError, jwt
 from fastapi import HTTPException, status
 from app.config import settings
+from app.utils.timing import log_external_call
 
-_jwks_cache: dict | None = None
 
+class CognitoJWKSProvider:
+    """Fetches and caches JWKS keys with TTL-based caching (10 min)
+    and key rotation handling."""
 
-async def get_jwks() -> dict:
-    global _jwks_cache
-    if _jwks_cache is None:
-        url = (
-            f"https://cognito-idp.{settings.aws_region}.amazonaws.com/"
-            f"{settings.cognito_user_pool_id}/.well-known/jwks.json"
+    def __init__(self, *, region: str, user_pool_id: str, cache_ttl: float = 600.0):
+        self._jwks_cache: dict[str, object] | None = None
+        self._cache_timestamp: float = 0.0
+        self._cache_ttl = cache_ttl
+        self._jwks_url = (
+            f"https://cognito-idp.{region}.amazonaws.com/"
+            f"{user_pool_id}/.well-known/jwks.json"
         )
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=5)
-            resp.raise_for_status()
-            _jwks_cache = resp.json()
-    return _jwks_cache
+        self._issuer_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
 
+    async def get_jwks(self, *, force_refresh: bool = False) -> dict[str, object]:
+        if not force_refresh and self._cache_is_fresh():
+            return self._jwks_cache
+        async with log_external_call("cognito", "jwks_fetch"):
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(self._jwks_url, timeout=5)
+                resp.raise_for_status()
+                self._jwks_cache = resp.json()
+        self._cache_timestamp = time.monotonic()
+        return self._jwks_cache
 
-async def verify_token(token: str) -> dict:
-    try:
-        jwks = await get_jwks()
+    async def get_signing_key(self, token: str) -> dict[str, object]:
+        """Find the JWK matching the token's kid. Forces refresh on cache miss
+        to handle key rotation."""
         header = jwt.get_unverified_header(token)
-        key = next(k for k in jwks["keys"] if k["kid"] == header["kid"])
+        kid = header.get("kid")
+        jwks = await self.get_jwks()
+        key = self._find_key(jwks, kid)
+        if key is None:
+            jwks = await self.get_jwks(force_refresh=True)
+            key = self._find_key(jwks, kid)
+        if key is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, ...)
+        return key
+
+
+_jwks_provider = CognitoJWKSProvider(
+    region=settings.aws_region,
+    user_pool_id=settings.cognito_user_pool_id,
+)
+
+
+async def verify_cognito_token(token: str) -> dict[str, object]:
+    key = await _jwks_provider.get_signing_key(token)
+    try:
         claims = jwt.decode(
             token,
             key,
             algorithms=["RS256"],
             audience=settings.cognito_app_client_id,
+            issuer=_jwks_provider.issuer_url,
         )
-        return claims
-    except (JWTError, StopIteration) as exc:
+    except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+    return claims
 ```
 
 ```python
@@ -382,11 +465,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
-from app.utils.cognito import verify_token
+from app.core.auth import verify_cognito_token
 from app.models.profile import Profile
 from sqlalchemy import select
 
-bearer_scheme = HTTPBearer()
+_bearer_scheme = HTTPBearer()
 
 
 async def get_db():
@@ -395,16 +478,20 @@ async def get_db():
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> Profile:
-    claims = await verify_token(credentials.credentials)
-    cognito_sub = claims["sub"]
+    claims = await verify_cognito_token(credentials.credentials)
+    cognito_sub = uuid.UUID(str(claims["sub"]))
     result = await db.execute(select(Profile).where(Profile.id == cognito_sub))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    return user
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return profile
 ```
 
 **Rules:**
@@ -521,37 +608,41 @@ async def build_context(user_id: str, character_id: str, db):
 ## 8. SSE Streaming
 
 ```python
-# app/routes/messages.py (streaming variant)
-import asyncio
+# app/routes/chat.py (streaming)
 import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.dependencies import get_current_user, get_db
-from app.services.message_service import MessageService
+from app.models.profile import Profile
+from app.schemas.chat import SendMessageRequest
+from app.services.chat_service import ChatService
 
 router = APIRouter()
 
 
-@router.post("/{character_id}/messages/stream")
-async def stream_message(
-    character_id: str,
-    body: MessageRequest,
-    current_user: User = Depends(get_current_user),
+@router.post("/{character_id}/messages")
+async def send_message(
+    character_id: uuid.UUID,
+    body: SendMessageRequest,
+    current_user: Profile = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
-    service = MessageService(db)
-
-    async def event_generator():
-        async for chunk in service.stream(
-            user_id=current_user.id,
-            character_id=character_id,
-            content=body.content,
-        ):
-            yield f"data: {json.dumps({'delta': chunk})}\n\n"
-        yield "data: [DONE]\n\n"
+) -> StreamingResponse:
+    service = ChatService(db)
+    context = await service.validate_send_message(
+        character_id=character_id,
+        user_id=current_user.id,
+        profile=current_user,
+        content=body.content,
+    )
 
     return StreamingResponse(
-        event_generator(),
+        service.stream_response(
+            context=context,
+            user_id=current_user.id,
+            profile=current_user,
+            content=body.content,
+            media_url=body.media_url,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -560,28 +651,44 @@ async def stream_message(
     )
 ```
 
+### SSE Event Models
+
 ```python
-# app/services/llm_service.py — streaming from Claude
-from anthropic import AsyncAnthropic
-from app.config import settings
+# app/schemas/chat.py — SSE event types
+from pydantic import BaseModel
 
-client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+class ChunkEvent(BaseModel):
+    type: str = "chunk"
+    content: str
 
+class ActionEvent(BaseModel):
+    type: str = "action"
+    action: str
+    payload: dict[str, Any]
 
-async def stream_completion(messages: list[dict], system: str):
-    async with client.messages.stream(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=system,
-        messages=messages,
-    ) as stream:
-        async for text in stream.text_stream:
-            yield text
+class DoneEvent(BaseModel):
+    type: str = "done"
+    message_id: str
+
+class ErrorEvent(BaseModel):
+    type: str = "error"
+    message: str
+```
+
+### SSE Event Wire Format
+
+```
+data: {"type": "chunk", "content": "Great"}
+data: {"type": "chunk", "content": "! Let's start"}
+data: {"type": "action", "action": "SET_ALARM", "payload": {"time": "07:00"}}
+data: {"type": "done", "message_id": "uuid-here"}
+data: {"type": "error", "message": "LLM service unavailable"}
 ```
 
 **Rules:**
 - Always set `Cache-Control: no-cache` and `X-Accel-Buffering: no`.
-- Terminate the stream with `data: [DONE]\n\n`.
+- Use typed JSON events (`ChunkEvent`, `ActionEvent`, `DoneEvent`, `ErrorEvent`).
+- The `done` event is always the last event and contains the saved `message_id`.
 - Each SSE message: `data: <json>\n\n` (double newline).
 - Clients must handle partial JSON — always send complete JSON objects per chunk.
 
@@ -591,151 +698,119 @@ async def stream_completion(messages: list[dict], system: str):
 
 ```python
 # app/services/memory_service.py
-from mem0 import AsyncMemoryClient
+import asyncio
+from mem0 import MemoryClient
 from app.config import settings
-
-_client: AsyncMemoryClient | None = None
-
-
-def get_mem0_client() -> AsyncMemoryClient:
-    global _client
-    if _client is None:
-        _client = AsyncMemoryClient(api_key=settings.mem0_api_key)
-    return _client
-
-
-def agent_id(template_id: str, user_id: str) -> str:
-    """Canonical format: {template_id}_{user_id}"""
-    return f"{template_id}_{user_id}"
+from app.core.circuit_breaker import get_mem0_circuit_breaker
+from app.utils.timing import log_external_call
 
 
 class MemoryService:
-    def __init__(self):
-        self.client = get_mem0_client()
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
 
-    async def add(self, messages: list[dict], user_id: str, template_id: str) -> None:
-        await self.client.add(
-            messages=messages,
-            user_id=user_id,
-            agent_id=agent_id(template_id, user_id),
-        )
-
-    async def search(
+    async def get_character_memories(
         self,
-        query: str,
-        user_id: str,
-        template_id: str,
-        limit: int = 10,
-    ) -> list[dict]:
-        results = await self.client.search(
-            query=query,
-            user_id=user_id,
-            agent_id=agent_id(template_id, user_id),
-            limit=limit,
-        )
-        return results
+        character_id: uuid.UUID,
+        user_id: uuid.UUID,
+        mem0_user_id: str,
+    ) -> list[MemoryItem]:
+        character = await self._get_owned_character(character_id, user_id)
+        breaker = get_mem0_circuit_breaker()
 
-    async def get_all(self, user_id: str, template_id: str) -> list[dict]:
-        return await self.client.get_all(
-            user_id=user_id,
-            agent_id=agent_id(template_id, user_id),
-        )
+        async def _do_get_all() -> list[dict[str, object]]:
+            client = MemoryClient(api_key=settings.mem0_api_key)
+            async with log_external_call("mem0", "get_all"):
+                return await asyncio.to_thread(
+                    client.get_all,
+                    user_id=mem0_user_id,
+                    agent_id=character.mem0_agent_id,
+                )
+
+        results = await breaker.call_with_breaker(_do_get_all)
+        return self._map_memories(results)
 ```
 
 **Rules:**
 - `agent_id` format is always `{template_id}_{user_id}` — never deviate.
 - Always pass both `user_id` and `agent_id` for per-character isolation.
-- Prefer `AsyncMemoryClient` if available. The sync `MemoryClient` with `asyncio.to_thread()` is acceptable as fallback.
+- The mem0 SDK provides a sync `MemoryClient`. All calls must be wrapped in `asyncio.to_thread()` to avoid blocking the event loop.
+- All Mem0 calls go through the circuit breaker (`get_mem0_circuit_breaker()`).
 - Memory is searched before building the LLM prompt, in parallel with history retrieval.
 
 ---
 
 ## 10. Claude / Multi-Provider LLM
 
-> **Status:** The `LLMProvider` abstraction is defined below but not yet implemented in the codebase.
-> Current code uses `AsyncAnthropic` directly. Implementation planned in P1.5-05.
+The LLM layer is a package at `app/services/llm/` with provider abstraction, an Anthropic
+and OpenAI implementation, and a router singleton that selects the active provider.
 
 ```python
-# app/services/llm_service.py
+# app/services/llm/provider.py — ABC
 from abc import ABC, abstractmethod
-from anthropic import AsyncAnthropic
-from openai import AsyncOpenAI
-from app.config import settings
+from collections.abc import AsyncIterator
 
 
 class LLMProvider(ABC):
     @abstractmethod
-    async def complete(self, system: str, messages: list[dict]) -> str: ...
+    async def complete(
+        self, system: str, messages: list[dict[str, str]],
+        model: str | None = None, max_tokens: int = 1024, temperature: float = 0.8,
+    ) -> str: ...
 
     @abstractmethod
-    async def stream(self, system: str, messages: list[dict]):
-        yield ""  # async generator
+    def stream(
+        self, system: str, messages: list[dict[str, str]],
+        model: str | None = None, max_tokens: int = 1024, temperature: float = 0.8,
+    ) -> AsyncIterator[str]: ...
+
+    @abstractmethod
+    async def complete_fast(
+        self, system: str, messages: list[dict[str, str]],
+        max_tokens: int = 256, temperature: float = 0.0,
+    ) -> str:
+        """Fast/cheap completion for classification tasks.
+        Uses the provider's fast model automatically (e.g. claude-haiku)."""
+```
+
+```python
+# app/services/llm/router.py — singleton
+from app.services.llm.anthropic_provider import AnthropicProvider
+from app.services.llm.openai_provider import OpenAIProvider
+from app.services.llm.provider import LLMProvider
 
 
-class ClaudeProvider(LLMProvider):
-    def __init__(self):
-        self.client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-        self.model = settings.claude_model  # e.g. "claude-sonnet-4-6"
+class LLMRouter:
+    """Routes LLM requests to the configured provider."""
 
-    async def complete(self, system: str, messages: list[dict]) -> str:
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=1024,
-            system=system,
-            messages=messages,
-        )
-        return response.content[0].text
+    def __init__(self, settings: Settings) -> None:
+        self._providers: dict[str, LLMProvider] = {}
+        self._default: str = settings.llm_provider
+        if settings.anthropic_api_key:
+            self._providers["claude"] = AnthropicProvider(settings)
+        if settings.openai_api_key:
+            self._providers["openai"] = OpenAIProvider(settings)
 
-    async def stream(self, system: str, messages: list[dict]):
-        async with self.client.messages.stream(
-            model=self.model,
-            max_tokens=1024,
-            system=system,
-            messages=messages,
-        ) as s:
-            async for chunk in s.text_stream:
-                yield chunk
+    def get(self, provider: str | None = None) -> LLMProvider:
+        name = provider or self._default
+        return self._providers[name]
 
 
-class OpenAIProvider(LLMProvider):
-    def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model  # e.g. "gpt-4o"
+_router_instance: LLMRouter | None = None
 
-    async def complete(self, system: str, messages: list[dict]) -> str:
-        all_messages = [{"role": "system", "content": system}] + messages
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=all_messages,
-        )
-        return response.choices[0].message.content
-
-    async def stream(self, system: str, messages: list[dict]):
-        all_messages = [{"role": "system", "content": system}] + messages
-        async with await self.client.chat.completions.create(
-            model=self.model,
-            messages=all_messages,
-            stream=True,
-        ) as s:
-            async for chunk in s:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-
-
-def get_llm_provider() -> LLMProvider:
-    provider = settings.llm_provider  # "claude" | "openai" | "gemini"
-    if provider == "claude":
-        return ClaudeProvider()
-    elif provider == "openai":
-        return OpenAIProvider()
-    raise ValueError(f"Unknown LLM provider: {provider}")
+def get_llm_router() -> LLMRouter:
+    global _router_instance
+    if _router_instance is None:
+        from app.config import settings
+        _router_instance = LLMRouter(settings)
+    return _router_instance
 ```
 
 **Rules:**
-- All LLM calls go through the `LLMProvider` abstraction.
-- Default provider is `claude`. Config drives switching.
-- Use `claude-haiku` for fast/cheap ops (classification, short summaries).
-- Use `claude-sonnet` for main conversations.
+- All LLM calls go through `get_llm_router().get()` to obtain a `LLMProvider`.
+- Default provider is `claude`. Config drives switching via `LLM_PROVIDER` env var.
+- Use `complete_fast()` for fast/cheap ops (classification, short summaries) — it auto-selects the haiku model.
+- Use `complete()` or `stream()` for main conversations.
 - Never import `anthropic` directly in route files — use service layer.
 
 ---
@@ -800,20 +875,29 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 ```python
 # app/config.py
-import boto3
 import json
+import logging
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+logger = logging.getLogger("ember")
 
-def _load_secret(secret_name: str) -> dict:
-    client = boto3.client("secretsmanager")
+
+def _load_secret(secret_name: str, region: str) -> dict[str, object]:
+    import boto3
+    client = boto3.client("secretsmanager", region_name=region)
     response = client.get_secret_value(SecretId=secret_name)
     return json.loads(response["SecretString"])
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    # App
+    app_name: str = "Ember"
+    app_version: str = "1.0.0"
+    debug: bool = False
+    log_level: str = "INFO"
 
     # AWS
     aws_region: str = "us-east-1"
@@ -829,22 +913,66 @@ class Settings(BaseSettings):
     # LLM
     llm_provider: str = "claude"
     claude_model: str = "claude-sonnet-4-6"
+    claude_haiku_model: str = "claude-haiku-4-5"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    openai_fast_model: str = "gpt-4o-mini"
 
-    # Mem0
+    # Memory
     mem0_api_key: str = ""
 
-    # App
-    debug: bool = False
+    # Circuit Breaker
+    mem0_circuit_failure_threshold: int = 3
+    mem0_circuit_recovery_timeout: float = 60.0
+    mem0_cache_ttl: float = 300.0
+    mem0_retry_queue_max_size: int = 100
 
-    def model_post_init(self, __context) -> None:
+    # Chat context
+    max_context_messages: int = 50
+
+    # Voice
+    elevenlabs_api_key: str = ""
+
+    # Storage
+    s3_bucket_name: str = ""
+
+    # Push Notifications
+    firebase_credentials_json: str = ""
+
+    # Rate Limiting (requests per minute per user)
+    rate_limit_chat: int = 10
+    rate_limit_write: int = 20
+    rate_limit_read: int = 60
+
+    # CORS
+    cors_origins: str = "*"
+
+    # Observability — Sentry
+    sentry_dsn: str = ""
+    sentry_environment: str = "development"
+    sentry_traces_sample_rate: float = 0.1
+
+    # Observability — Health Check
+    health_check_timeout: float = 3.0
+    health_check_degraded_threshold: float = 1.0
+
+    # Observability — Logging
+    log_request_body: bool = False
+
+    def model_post_init(self, __context: object) -> None:
         if not self.debug and self.aws_secret_name:
-            secrets = _load_secret(self.aws_secret_name)
-            for key, value in secrets.items():
-                if hasattr(self, key):
-                    object.__setattr__(self, key, value)
+            try:
+                secrets = _load_secret(self.aws_secret_name, self.aws_region)
+                for key, value in secrets.items():
+                    if hasattr(self, key):
+                        object.__setattr__(self, key, value)
+            except Exception:
+                logger.warning(
+                    "Failed to load secrets from AWS Secrets Manager. "
+                    "Falling back to environment variables.",
+                    exc_info=True,
+                )
 
 
 @lru_cache
@@ -865,39 +993,34 @@ settings = get_settings()
 
 ## 13. Dependency Injection Pattern
 
+The `dependencies.py` module exports exactly two dependencies: `get_db` and `get_current_user`.
+Service classes are instantiated directly in route handlers, not via `Depends()`.
+
 ```python
-# app/dependencies.py
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import AsyncSessionLocal
-from app.services.memory_service import MemoryService
-from app.services.llm_service import LLMProvider, get_llm_provider
-
-
-async def get_db() -> AsyncSession:
+# app/dependencies.py — only two exports
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
 
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Profile:
+    ...
+```
 
-def get_memory_service() -> MemoryService:
-    return MemoryService()
-
-
-def get_llm() -> LLMProvider:
-    return get_llm_provider()
-
-
-# Usage in route:
+```python
+# Usage in route handlers — services constructed directly
 @router.post("/{character_id}/messages")
 async def send_message(
-    character_id: str,
-    body: MessageRequest,
-    current_user: User = Depends(get_current_user),
+    character_id: uuid.UUID,
+    body: SendMessageRequest,
+    current_user: Profile = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    memory: MemoryService = Depends(get_memory_service),
-    llm: LLMProvider = Depends(get_llm),
-):
-    ...
+) -> StreamingResponse:
+    service = ChatService(db)
+    context = await service.validate_send_message(...)
+    return StreamingResponse(service.stream_response(...), ...)
 ```
 
 ---
@@ -952,18 +1075,46 @@ def do_run_migrations(connection):
 ## 15. Testing Patterns
 
 ```python
-# tests/conftest.py
+# tests/conftest.py — default mock-based conftest (unit tests)
+import os
+os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://ember:ember@localhost:5432/ember_test")
+
+from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock
+
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from httpx import ASGITransport, AsyncClient
+
+from app.dependencies import get_db
 from app.main import app
+
+
+async def _override_get_db() -> AsyncGenerator[AsyncMock, None]:
+    yield AsyncMock()
+
+
+@pytest_asyncio.fixture
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    app.dependency_overrides[get_db] = _override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
+```
+
+**Integration test conftest pattern** (for tests needing a real database):
+
+```python
+# tests/integration/conftest.py — real-DB integration tests
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.dependencies import get_db, get_current_user
 from app.models.base import Base
-from app.models.user import User
+from app.models.profile import Profile
 
 TEST_DB_URL = "postgresql+asyncpg://ember:ember@localhost/ember_test"
-
 test_engine = create_async_engine(TEST_DB_URL, echo=False)
 TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -981,81 +1132,63 @@ async def setup_db():
 async def db():
     async with TestSessionLocal() as session:
         yield session
-
-
-@pytest_asyncio.fixture
-async def client(db):
-    fake_user = User(id="test-user-id", cognito_sub="test-sub", email="test@ember.ai")
-
-    async def override_db():
-        yield db
-
-    async def override_user():
-        return fake_user
-
-    app.dependency_overrides[get_db] = override_db
-    app.dependency_overrides[get_current_user] = override_user
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c
-
-    app.dependency_overrides.clear()
+        await session.rollback()
 ```
 
 ```python
-# tests/routes/test_messages.py
+# tests/routes/test_chat.py
 import pytest
 
 
-@pytest.mark.asyncio
-async def test_send_message_returns_201(client, db):
-    response = await client.post(
-        "/characters/char-1/messages",
-        json={"content": "Hello Ember"},
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["role"] == "assistant"
-    assert "id" in data
+class TestSendMessage:
+    @pytest.mark.asyncio
+    async def test_returns_sse_stream_with_valid_body(self, client):
+        # Mock auth + service layers as needed per test
+        ...
+
+    @pytest.mark.asyncio
+    async def test_returns_422_with_empty_content(self, client):
+        response = await client.post(
+            "/api/v1/characters/char-1/messages",
+            json={"content": ""},
+        )
+        assert response.status_code == 422
 
 
-@pytest.mark.asyncio
-async def test_list_messages_cursor_pagination(client, db):
-    # seed messages
-    for i in range(5):
-        await client.post("/characters/char-1/messages", json={"content": f"msg {i}"})
-
-    resp1 = await client.get("/characters/char-1/messages?limit=2")
-    assert resp1.status_code == 200
-    page1 = resp1.json()
-    assert len(page1["items"]) == 2
-    assert page1["has_more"] is True
-
-    resp2 = await client.get(f"/characters/char-1/messages?limit=2&cursor={page1['next_cursor']}")
-    assert resp2.status_code == 200
-    page2 = resp2.json()
-    assert len(page2["items"]) == 2
+class TestListMessages:
+    @pytest.mark.asyncio
+    async def test_returns_200_with_pagination_shape(self, client):
+        response = await client.get("/api/v1/characters/char-1/messages?limit=2")
+        assert response.status_code == 200
+        body = response.json()
+        assert "items" in body
+        assert "has_more" in body
+        assert "next_cursor" in body
 ```
 
 ### Mocking External Services
 
 ```python
-# tests/services/test_message_service.py
-from unittest.mock import AsyncMock, patch
+# tests/services/test_chat_service.py
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
 @pytest.mark.asyncio
-async def test_message_service_calls_mem0(db):
-    with patch("app.services.memory_service.MemoryService.search", new_callable=AsyncMock) as mock_search:
-        mock_search.return_value = []
-        with patch("app.services.llm_service.ClaudeProvider.complete", new_callable=AsyncMock) as mock_llm:
-            mock_llm.return_value = "Hello, I'm Ember!"
-            from app.services.message_service import MessageService
-            svc = MessageService(db)
-            result = await svc.send(user_id="u1", character_id="c1", content="Hi")
-            assert result.content == "Hello, I'm Ember!"
-            mock_search.assert_called_once()
+async def test_chat_service_calls_mem0(db):
+    with patch("app.services.memory_service.MemoryClient") as mock_client_cls:
+        mock_client = MagicMock()
+        mock_client.search.return_value = []
+        mock_client_cls.return_value = mock_client
+
+        with patch("app.services.llm.router.get_llm_router") as mock_router:
+            mock_provider = AsyncMock()
+            mock_provider.stream.return_value = AsyncMock()
+            mock_router.return_value.get.return_value = mock_provider
+
+            from app.services.chat_service import ChatService
+            svc = ChatService(db)
+            # ... test logic
 ```
 
 ---

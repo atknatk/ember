@@ -56,6 +56,7 @@ struct DailySummaryCard: View {
                 )
             )
             .clipShape(RoundedRectangle(cornerRadius: .emberRadius20))
+            .emberCardShadow()
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)

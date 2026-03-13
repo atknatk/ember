@@ -92,6 +92,7 @@ final class MemoriesViewModel {
         } catch {
             errorMessage = error.localizedDescription
             showError = true
+            HapticManager.notification(.error)
         }
 
         isLoading = false
@@ -116,10 +117,11 @@ final class MemoriesViewModel {
             withAnimation {
                 memories.removeAll { $0.id == memory.id }
             }
-            HapticManager.impact(.medium)
+            HapticManager.notification(.success)
         } catch {
             errorMessage = error.localizedDescription
             showError = true
+            HapticManager.notification(.error)
         }
 
         memoryToDelete = nil

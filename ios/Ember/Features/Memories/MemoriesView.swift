@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MemoriesView: View {
     @State private var viewModel: MemoriesViewModel
+    @Namespace private var namespace
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
         _viewModel = State(initialValue: MemoriesViewModel(apiClient: apiClient))
@@ -80,10 +81,16 @@ struct MemoriesView: View {
                 .foregroundStyle(isSelected ? .white : Color.emberTextSecondary)
                 .padding(.horizontal, .emberSpacing12)
                 .padding(.vertical, .emberSpacing8)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? Color.emberPrimary : Color.emberSurface2)
-                )
+                .background {
+                    if isSelected {
+                        Capsule()
+                            .fill(Color.emberPrimary)
+                            .matchedGeometryEffect(id: "selectedSegment", in: namespace)
+                    } else {
+                        Capsule()
+                            .fill(Color.emberSurface2)
+                    }
+                }
         }
         .accessibilityLabel("\(label) memories")
         .accessibilityAddTraits(.isButton)
@@ -95,10 +102,27 @@ struct MemoriesView: View {
 
     @ViewBuilder
     private var loadingView: some View {
-        VStack {
-            Spacer()
-            ProgressView()
-                .tint(Color.emberPrimary)
+        VStack(spacing: .emberSpacing16) {
+            // Character picker skeleton
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: .emberSpacing8) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        ShimmerView(cornerRadius: .emberRadius28)
+                            .frame(width: 80, height: 32)
+                    }
+                }
+            }
+            .padding(.horizontal, .emberSpacing20)
+
+            // Memory row skeletons
+            VStack(spacing: .emberSpacing8) {
+                ForEach(0..<5, id: \.self) { _ in
+                    ShimmerView(cornerRadius: .emberRadius12)
+                        .frame(height: 70)
+                }
+            }
+            .padding(.horizontal, .emberSpacing20)
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -148,6 +172,7 @@ struct MemoriesView: View {
                     ))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
+                            HapticManager.impact(.medium)
                             viewModel.memoryToDelete = memory
                         } label: {
                             Label("Delete", systemImage: "trash")
@@ -163,5 +188,8 @@ struct MemoriesView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .refreshable {
+            await viewModel.loadMemories()
+        }
     }
 }

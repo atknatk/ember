@@ -63,10 +63,14 @@ struct MainTabView: View {
             .tag(Tab.profile)
         }
         .tint(Color.emberPrimary)
+        .onChange(of: selectedTab) { _, _ in
+            HapticManager.selection()
+        }
         .onAppear {
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor(Color.emberSurface)
+            appearance.shadowColor = UIColor(Color.black.opacity(0.3))
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }

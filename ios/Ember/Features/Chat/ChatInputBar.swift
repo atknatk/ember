@@ -11,9 +11,6 @@ struct ChatInputBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
-                .background(Color.emberSurface3)
-
             HStack(alignment: .bottom, spacing: .emberSpacing8) {
                 // Text field
                 TextField("Message...", text: $text, axis: .vertical)
@@ -44,11 +41,13 @@ struct ChatInputBar: View {
                         .frame(width: 36, height: 36)
                 }
                 .disabled(!canSend)
+                .buttonStyle(.ember)
                 .accessibilityLabel("Send message")
             }
             .padding(.horizontal, .emberSpacing12)
             .padding(.vertical, .emberSpacing8)
             .background(Color.emberSurface)
+            .shadow(color: Color.black.opacity(0.2), radius: 4, y: -2)
         }
     }
 

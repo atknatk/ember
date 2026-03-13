@@ -112,6 +112,7 @@ struct SignUpView: View {
                     .clipShape(RoundedRectangle(cornerRadius: .emberRadius28))
                 }
                 .disabled(!viewModel.isSignUpFormValid || viewModel.isLoading)
+                .buttonStyle(.ember)
                 .accessibilityLabel("Create Account")
                 .accessibilityHint("Double tap to create your account")
                 .offset(x: shakeOffset)

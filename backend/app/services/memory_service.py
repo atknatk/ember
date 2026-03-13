@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.character import Character
 from app.schemas.memory import MemoryItem
+from app.utils.timing import log_external_call
 
 logger = logging.getLogger("ember")
 
@@ -50,11 +51,12 @@ class MemoryService:
 
         try:
             client = MemoryClient(api_key=settings.mem0_api_key)
-            results = await asyncio.to_thread(
-                client.get_all,
-                user_id=mem0_user_id,
-                agent_id=character.mem0_agent_id,
-            )
+            async with log_external_call("mem0", "get_all"):
+                results = await asyncio.to_thread(
+                    client.get_all,
+                    user_id=mem0_user_id,
+                    agent_id=character.mem0_agent_id,
+                )
         except Exception:
             logger.exception(
                 "Mem0 get_all failed for agent_id=%s", character.mem0_agent_id,
@@ -85,7 +87,8 @@ class MemoryService:
 
         try:
             client = MemoryClient(api_key=settings.mem0_api_key)
-            await asyncio.to_thread(client.delete, memory_id)
+            async with log_external_call("mem0", "delete"):
+                await asyncio.to_thread(client.delete, memory_id)
         except Exception as exc:
             # Treat "not found" from Mem0 as success (idempotent delete)
             exc_str = str(exc).lower()
@@ -119,11 +122,12 @@ class MemoryService:
 
         try:
             client = MemoryClient(api_key=settings.mem0_api_key)
-            await asyncio.to_thread(
-                client.delete_all,
-                user_id=mem0_user_id,
-                agent_id=character.mem0_agent_id,
-            )
+            async with log_external_call("mem0", "delete_all"):
+                await asyncio.to_thread(
+                    client.delete_all,
+                    user_id=mem0_user_id,
+                    agent_id=character.mem0_agent_id,
+                )
         except Exception:
             logger.exception(
                 "Mem0 delete_all failed for agent_id=%s", character.mem0_agent_id,
@@ -144,10 +148,11 @@ class MemoryService:
         """
         try:
             client = MemoryClient(api_key=settings.mem0_api_key)
-            results = await asyncio.to_thread(
-                client.get_all,
-                user_id=mem0_user_id,
-            )
+            async with log_external_call("mem0", "get_all"):
+                results = await asyncio.to_thread(
+                    client.get_all,
+                    user_id=mem0_user_id,
+                )
         except Exception:
             logger.exception(
                 "Mem0 get_all (global) failed for user_id=%s", mem0_user_id,

@@ -1,7 +1,7 @@
 """FastAPI application factory for the Ember backend.
 
 Creates the app instance with lifespan management, CORS middleware,
-route registration, and global exception handling.
+request ID middleware, route registration, and global exception handling.
 """
 
 from __future__ import annotations
@@ -17,8 +17,10 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.logging import setup_logging
 from app.core.rate_limit import RateLimiter
+from app.core.sentry import init_sentry
 from app.db.session import engine
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 from app.routes import auth, characters, chat, health, media, memories, onboarding, profile
 
 logger = logging.getLogger("ember")
@@ -27,6 +29,7 @@ logger = logging.getLogger("ember")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application startup and shutdown lifecycle."""
+    init_sentry()
     setup_logging(log_level=settings.log_level, debug=settings.debug)
     logger.info("Ember API starting up")
     yield
@@ -42,9 +45,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Rate limiting middleware (registered before CORS so that CORS wraps it
-    # as the outer middleware and adds CORS headers to 429 responses).
-    # Starlette applies middleware in reverse registration order: last added = outermost.
+    # Middleware registration order: Starlette applies in reverse order.
+    # Last registered = outermost in request flow.
+    # Target flow: RequestID -> CORS -> RateLimit -> route
+
+    # Rate limiting middleware (innermost)
     rate_limiter = RateLimiter(
         group_limits={
             "chat": settings.rate_limit_chat,
@@ -56,8 +61,7 @@ def create_app() -> FastAPI:
     app.state.rate_limiter = rate_limiter
     app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
 
-    # CORS middleware (registered last = outermost, so CORS headers appear on all responses
-    # including 429 rate limit responses)
+    # CORS middleware (middle layer)
     origins = [o.strip() for o in settings.cors_origins.split(",")]
     app.add_middleware(
         CORSMiddleware,
@@ -66,6 +70,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Request ID middleware (outermost — registered last)
+    app.add_middleware(RequestIDMiddleware)
 
     # Route registration
     app.include_router(health.router, prefix="/api/v1", tags=["health"])

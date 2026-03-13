@@ -30,4 +30,4 @@ async def test_health_response_serialization() -> None:
     """HealthResponse should serialize to dict with correct keys."""
     response = HealthResponse(status="ok", version="1.0.0")
     data = response.model_dump()
-    assert data == {"status": "ok", "version": "1.0.0"}
+    assert data == {"status": "ok", "version": "1.0.0", "dependencies": None}

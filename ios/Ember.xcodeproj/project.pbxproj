@@ -58,6 +58,9 @@
 		F8E0232E1C0C21EA414A50A0 /* HomePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96292BE6300ABC586655C0D0 /* HomePlaceholderView.swift */; };
 		FBF66F63B9D9533A2C59F77F /* Font+Ember.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8EF8204A6C4B57AEAB85107 /* Font+Ember.swift */; };
 		FCFD5303F2CFE770676F8D40 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D0FDD2B965C85B520E82EF /* AuthService.swift */; };
+		A1B2C3D4E5F60001AABB0001 /* AuthServiceExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002AABB0001 /* AuthServiceExtendedTests.swift */; };
+		A1B2C3D4E5F60001AABB0002 /* AuthViewModelExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002AABB0002 /* AuthViewModelExtendedTests.swift */; };
+		A1B2C3D4E5F60001AABB0003 /* KeychainTokenStoreExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002AABB0003 /* KeychainTokenStoreExtendedTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -121,6 +124,9 @@
 		F57E73744849DD063E8C2BE9 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		F71752F4D66E39D2EDD5FD7E /* AppContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainerTests.swift; sourceTree = "<group>"; };
 		F9C288A1B6AF5D4219689A57 /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60002AABB0001 /* AuthServiceExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceExtendedTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60002AABB0002 /* AuthViewModelExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModelExtendedTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60002AABB0003 /* KeychainTokenStoreExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTokenStoreExtendedTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -291,7 +297,9 @@
 		A65AAA63E57C211EBDD3BCE6 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F60002AABB0001 /* AuthServiceExtendedTests.swift */,
 				E3163E3B6D2EEE4781CA15A5 /* AuthServiceTests.swift */,
+				A1B2C3D4E5F60002AABB0003 /* KeychainTokenStoreExtendedTests.swift */,
 				CD0400D873376F86D3659B1E /* KeychainTokenStoreTests.swift */,
 			);
 			path = Auth;
@@ -369,6 +377,7 @@
 		F7C943E9BD81D247624A0CB6 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F60002AABB0002 /* AuthViewModelExtendedTests.swift */,
 				CF3EDF6EAF5E8B7423D06C5A /* AuthViewModelTests.swift */,
 			);
 			path = Auth;
@@ -519,13 +528,16 @@
 				8C8A47C69B5886FBAC2FDEBE /* AppContainerTests.swift in Sources */,
 				372E163A4CFA3697879E0690 /* AppRouterExtendedTests.swift in Sources */,
 				5793BB23F5599E859AA62FD2 /* AppRouterTests.swift in Sources */,
+				A1B2C3D4E5F60001AABB0001 /* AuthServiceExtendedTests.swift in Sources */,
 				2D7B4CD0AE3FEFDE24D5E7FC /* AuthServiceTests.swift in Sources */,
+				A1B2C3D4E5F60001AABB0002 /* AuthViewModelExtendedTests.swift in Sources */,
 				C0FB1B404863AA1444CB3EBF /* AuthViewModelTests.swift in Sources */,
 				300257909CDA83CF8660B4A4 /* CGFloatEmberTests.swift in Sources */,
 				48C96AEB074744ACF55D83F8 /* ColorEmberTests.swift in Sources */,
 				9AAB3726C67409E8EA3BF342 /* ColorTests.swift in Sources */,
 				5C536B3A8A4D1A6D94ED6F49 /* EmberSymbolTests.swift in Sources */,
 				C695B98E7949A9FFF4BFE81D /* FontEmberTests.swift in Sources */,
+				A1B2C3D4E5F60001AABB0003 /* KeychainTokenStoreExtendedTests.swift in Sources */,
 				D7DD62955978C2A635158774 /* KeychainTokenStoreTests.swift in Sources */,
 				6A32B61BAF80CE342D9C860A /* MockAPIClient.swift in Sources */,
 				885270C7195D746767F5B5C2 /* MockAuthService.swift in Sources */,

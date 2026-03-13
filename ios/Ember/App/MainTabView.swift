@@ -47,7 +47,7 @@ struct MainTabView: View {
             .tag(Tab.memories)
 
             NavigationStack {
-                ProfilePlaceholderView()
+                ProfileView()
                     .navigationDestination(for: AppRouter.Route.self) { route in
                         destinationView(for: route)
                     }

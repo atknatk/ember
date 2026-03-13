@@ -52,11 +52,12 @@ class TokenManager @Inject constructor(
     /** Reads the stored refresh token, or null if not present. */
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
-    /** Deletes both tokens. */
+    /** Deletes both tokens and onboarding flag. */
     fun clearTokens() {
         prefs.edit()
             .remove(KEY_ACCESS_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_ONBOARDING_COMPLETED)
             .apply()
     }
 
@@ -64,9 +65,21 @@ class TokenManager @Inject constructor(
     val hasTokens: Boolean
         get() = getAccessToken() != null && getRefreshToken() != null
 
+    /** Saves onboarding completion flag. */
+    fun setOnboardingCompleted(completed: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_ONBOARDING_COMPLETED, completed)
+            .apply()
+    }
+
+    /** Returns true if onboarding has been completed. */
+    val hasCompletedOnboarding: Boolean
+        get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+
     companion object {
         private const val PREFS_FILE_NAME = "ember_auth_prefs"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     }
 }

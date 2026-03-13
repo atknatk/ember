@@ -22,16 +22,19 @@ import ai.ember.app.features.auth.AuthUiState
 import ai.ember.app.features.auth.AuthViewModel
 import ai.ember.app.features.home.HomeScreen
 import ai.ember.app.features.memories.MemoriesScreen
+import ai.ember.app.features.onboarding.OnboardingScreen
 import ai.ember.app.features.profile.ProfileScreen
 
 /**
- * Root navigation host with auth flow and bottom tab bar.
+ * Root navigation host with auth flow, onboarding, and bottom tab bar.
  *
- * Determines start destination based on token state:
- * - If tokens exist: start at Home (main app)
+ * Determines start destination based on token and onboarding state:
  * - If no tokens: start at Auth (login/signup)
+ * - If tokens exist but onboarding not completed: start at Onboarding
+ * - If tokens exist and onboarding completed: start at Home (main app)
  *
- * On successful authentication, navigates to Home and clears the auth back stack.
+ * On successful authentication, navigates to Onboarding or Home based on
+ * the onboarding_completed flag from the auth response.
  * Matches iOS AppRouter + MainTabView structure.
  */
 @Composable
@@ -44,17 +47,22 @@ fun EmberNavHost() {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authUiState by authViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Determine start destination based on existing tokens
-    val startDestination = if (authViewModel.isAuthenticated) {
-        Screen.Home.route
-    } else {
-        Screen.Auth.route
+    // Determine start destination based on existing tokens and onboarding state
+    val startDestination = when {
+        !authViewModel.isAuthenticated -> Screen.Auth.route
+        !authViewModel.hasCompletedOnboarding -> Screen.Onboarding.route
+        else -> Screen.Home.route
     }
 
-    // Navigate to Home on successful authentication
+    // Navigate after successful authentication
     LaunchedEffect(authUiState) {
         if (authUiState is AuthUiState.Success) {
-            navController.navigate(Screen.Home.route) {
+            val destination = if (authViewModel.hasCompletedOnboarding) {
+                Screen.Home.route
+            } else {
+                Screen.Onboarding.route
+            }
+            navController.navigate(destination) {
                 popUpTo(Screen.Auth.route) { inclusive = true }
                 launchSingleTop = true
             }
@@ -97,6 +105,21 @@ fun EmberNavHost() {
                 exitTransition = { fadeOut() },
             ) {
                 AuthScreen(viewModel = authViewModel)
+            }
+            composable(
+                route = Screen.Onboarding.route,
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+            ) {
+                OnboardingScreen(
+                    onOnboardingComplete = {
+                        authViewModel.setOnboardingCompleted()
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
             composable(Screen.Home.route) {
                 HomeScreen()

@@ -54,6 +54,15 @@ class AuthViewModel @Inject constructor(
     val isAuthenticated: Boolean
         get() = authRepository.isAuthenticated
 
+    /** Returns true if onboarding has been completed. */
+    val hasCompletedOnboarding: Boolean
+        get() = authRepository.hasCompletedOnboarding
+
+    /** Marks onboarding as completed (called after successful onboarding). */
+    fun setOnboardingCompleted() {
+        authRepository.setOnboardingCompleted()
+    }
+
     // -- Form Updates --
 
     fun onEmailChanged(value: String) {

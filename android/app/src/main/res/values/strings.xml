@@ -38,4 +38,39 @@
     <string name="auth_toggle_password_visibility">Toggle password visibility</string>
     <string name="auth_email_invalid">Please enter a valid email</string>
     <string name="auth_passwords_mismatch">Passwords do not match</string>
+
+    <!-- Onboarding — Welcome Carousel -->
+    <string name="onboarding_welcome_title_1">Meet Ember</string>
+    <string name="onboarding_welcome_desc_1">Your personal AI companion that remembers, understands, and grows with you.</string>
+    <string name="onboarding_welcome_title_2">Built on Memory</string>
+    <string name="onboarding_welcome_desc_2">Every conversation builds a deeper understanding. Ember remembers what matters to you.</string>
+    <string name="onboarding_welcome_title_3">Always Here for You</string>
+    <string name="onboarding_welcome_desc_3">Get personalized support, motivation, and genuine connection — anytime you need it.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_submit">Submit</string>
+
+    <!-- Onboarding — Questions -->
+    <string name="onboarding_progress">%1$d/%2$d</string>
+    <string name="onboarding_question_1">What should I call you?</string>
+    <string name="onboarding_question_2">What do you do for work?</string>
+    <string name="onboarding_question_3">Are you a morning person or a night owl?</string>
+    <string name="onboarding_question_4">What are your health or fitness goals?</string>
+    <string name="onboarding_question_5">How do you manage stress?</string>
+    <string name="onboarding_question_6">What is your sleep schedule like?</string>
+    <string name="onboarding_question_7">What kind of friendship do you expect from me?</string>
+    <string name="onboarding_placeholder_1">Your preferred name</string>
+    <string name="onboarding_placeholder_2">Your occupation or field</string>
+    <string name="onboarding_placeholder_3">e.g., Early bird, Night owl</string>
+    <string name="onboarding_placeholder_4">e.g., Run a marathon, eat healthier</string>
+    <string name="onboarding_placeholder_5">e.g., Exercise, meditation, walks</string>
+    <string name="onboarding_placeholder_6">e.g., 11pm to 7am</string>
+    <string name="onboarding_placeholder_7">e.g., Casual and fun, supportive coach</string>
+
+    <!-- Onboarding — Error -->
+    <string name="onboarding_error_title">Error</string>
+    <string name="onboarding_try_again">Try Again</string>
+    <string name="onboarding_dismiss">Dismiss</string>
 </resources>

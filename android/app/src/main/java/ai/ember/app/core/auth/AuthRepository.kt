@@ -26,6 +26,15 @@ class AuthRepository @Inject constructor(
     val isAuthenticated: Boolean
         get() = tokenManager.hasTokens
 
+    /** Returns true if onboarding has been completed. */
+    val hasCompletedOnboarding: Boolean
+        get() = tokenManager.hasCompletedOnboarding
+
+    /** Marks onboarding as completed. */
+    fun setOnboardingCompleted() {
+        tokenManager.setOnboardingCompleted(true)
+    }
+
     /**
      * Signs in with email and password.
      * On success, saves tokens to EncryptedSharedPreferences.
@@ -40,6 +49,7 @@ class AuthRepository @Inject constructor(
                         accessToken = body.token,
                         refreshToken = body.refreshToken,
                     )
+                    tokenManager.setOnboardingCompleted(body.user.onboardingCompleted)
                     Result.success(body)
                 } else {
                     Result.failure(AuthException("Something went wrong. Please try again."))
@@ -71,6 +81,7 @@ class AuthRepository @Inject constructor(
                         accessToken = body.token,
                         refreshToken = body.refreshToken,
                     )
+                    tokenManager.setOnboardingCompleted(body.user.onboardingCompleted)
                     Result.success(body)
                 } else {
                     Result.failure(AuthException("Something went wrong. Please try again."))

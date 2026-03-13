@@ -1,0 +1,64 @@
+/stt:
+  post:
+    operationId: transcribe_audio
+    summary: Transcribe audio to text
+    description: >
+      Download audio from an S3 URL and transcribe it using OpenAI Whisper API.
+      Supported formats: M4A, MP3, WAV, OGG. Maximum file size: 25MB.
+      Returns the transcript with detected language and confidence score.
+    tags:
+      - stt
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/stt.yaml#/STTRequest"
+    responses:
+      "200":
+        description: Audio transcribed successfully
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/stt.yaml#/STTResponse"
+      "400":
+        description: Unsupported audio format or invalid S3 URL
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "413":
+        description: Audio file exceeds 25MB
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+      "503":
+        description: STT service unavailable
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"

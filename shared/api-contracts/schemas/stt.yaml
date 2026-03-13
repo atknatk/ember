@@ -1,0 +1,35 @@
+STTRequest:
+  type: object
+  required:
+    - audio_url
+  properties:
+    audio_url:
+      type: string
+      minLength: 1
+      maxLength: 2048
+      description: >
+        S3 URL of the audio file to transcribe.
+        Supported formats: M4A, MP3, WAV, OGG. Max 25MB.
+
+STTResponse:
+  type: object
+  required:
+    - transcript
+    - language
+    - confidence
+  properties:
+    transcript:
+      type: string
+      description: The transcribed text from the audio
+    language:
+      type: string
+      description: Detected language code (e.g., "en", "tr")
+    confidence:
+      type: number
+      format: float
+      description: Average confidence score (0.0 to 1.0)
+    duration_seconds:
+      type: number
+      format: float
+      nullable: true
+      description: Duration of the audio in seconds (may be null)

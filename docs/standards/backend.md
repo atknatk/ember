@@ -60,6 +60,7 @@ backend/
       onboarding.py
       profile.py
       tts.py                 # TTS (text-to-speech) endpoint
+      stt.py                 # STT (speech-to-text) endpoint
     services/
       __init__.py
       activity_service.py     # Background user activity upserts
@@ -77,6 +78,7 @@ backend/
       onboarding_service.py
       profile_service.py
       tts_service.py          # TTS with ElevenLabs + Polly fallback
+      stt_service.py          # STT with OpenAI Whisper
       llm/                   # Multi-provider LLM package
         __init__.py
         provider.py          # LLMProvider ABC
@@ -105,6 +107,7 @@ backend/
       health.py              # Health check response schemas
       profile.py             # Profile CRUD schemas
       tts.py                 # TTS request/response schemas
+      stt.py                 # STT request/response schemas
     utils/
       __init__.py
       cursor.py              # Cursor encode/decode helpers

@@ -32,6 +32,7 @@ from app.routes import (
     notifications,
     onboarding,
     profile,
+    stt,
     tts,
 )
 
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
             {"name": "notifications", "description": "FCM token management and push notifications"},
             {"name": "profile", "description": "User profile management"},
             {"name": "tts", "description": "Text-to-speech audio generation"},
+            {"name": "stt", "description": "Speech-to-text transcription"},
         ],
     )
 
@@ -143,6 +145,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
     app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
     app.include_router(tts.router, prefix="/api/v1", tags=["tts"])
+    app.include_router(stt.router, prefix="/api/v1", tags=["stt"])
 
     # Global exception handler
     @app.exception_handler(Exception)

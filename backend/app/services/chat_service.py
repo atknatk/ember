@@ -383,28 +383,61 @@ class ChatService:
         agent_id: str | None,
         limit: int = 5,
     ) -> list[str]:
-        """Search Mem0 for relevant memories. Returns a list of memory text strings."""
-        try:
-            client = MemoryClient(api_key=settings.mem0_api_key)
-            kwargs: dict[str, Any] = {
-                "user_id": mem0_user_id,
-                "limit": limit,
-            }
-            if agent_id is not None:
-                kwargs["agent_id"] = agent_id
+        """Search Mem0 for relevant memories. Returns a list of memory text strings.
 
-            async with log_external_call("mem0", "search"):
-                results = await asyncio.to_thread(
-                    client.search,
-                    query,
-                    **kwargs,
-                )
-            return [r["memory"] for r in results]
+        Uses the circuit breaker to avoid calling Mem0 when it is down.
+        Falls back to cached results or empty list on failure.
+        """
+        from app.core.circuit_breaker import (
+            CircuitOpenError,
+            get_mem0_circuit_breaker,
+        )
+
+        breaker = get_mem0_circuit_breaker()
+
+        # Build cache key
+        cache_key = agent_id if agent_id is not None else f"global:{mem0_user_id}"
+
+        # Check if circuit is open — serve from cache or return empty
+        if breaker.state.value == "open":
+            cached = breaker.get_cached_memories(cache_key)
+            return cached if cached is not None else []
+
+        try:
+            async def _do_search() -> list[dict[str, Any]]:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                kwargs: dict[str, Any] = {
+                    "user_id": mem0_user_id,
+                    "limit": limit,
+                }
+                if agent_id is not None:
+                    kwargs["agent_id"] = agent_id
+
+                async with log_external_call("mem0", "search"):
+                    return await asyncio.to_thread(
+                        client.search,
+                        query,
+                        **kwargs,
+                    )
+
+            results = await breaker.call_with_breaker(_do_search)
+            memories = [r["memory"] for r in results]
+
+            # Cache the successful result
+            breaker.set_cached_memories(cache_key, memories)
+            return memories
+
+        except CircuitOpenError:
+            # Circuit just opened — try cache
+            cached = breaker.get_cached_memories(cache_key)
+            return cached if cached is not None else []
         except Exception:
             logger.exception(
                 "Mem0 search failed (agent_id=%s)", agent_id,
             )
-            return []
+            # Try cache as fallback
+            cached = breaker.get_cached_memories(cache_key)
+            return cached if cached is not None else []
 
     async def _get_recent_messages(
         self,
@@ -584,21 +617,47 @@ async def _persist_exchange(
             conversation_id,
         )
 
-    # Mem0 add (outside DB transaction)
-    try:
-        client = MemoryClient(api_key=settings.mem0_api_key)
-        async with log_external_call("mem0", "add"):
-            await asyncio.to_thread(
-                client.add,
-                [
-                    {"role": "user", "content": user_content},
-                    {"role": "assistant", "content": assistant_content},
-                ],
-                user_id=mem0_user_id,
-                agent_id=mem0_agent_id,
+    # Mem0 add (outside DB transaction) — routed through circuit breaker
+    from app.core.circuit_breaker import (
+        CircuitOpenError,
+        CircuitState,
+        get_mem0_circuit_breaker,
+    )
+
+    breaker = get_mem0_circuit_breaker()
+    mem0_messages = [
+        {"role": "user", "content": user_content},
+        {"role": "assistant", "content": assistant_content},
+    ]
+
+    if breaker.state == CircuitState.OPEN:
+        # Queue for later retry
+        breaker.enqueue_retry(mem0_messages, mem0_user_id, mem0_agent_id)
+        logger.debug(
+            "Mem0 add queued (circuit open) for agent_id=%s", mem0_agent_id,
+        )
+    else:
+        try:
+            async def _do_add() -> None:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "add"):
+                    await asyncio.to_thread(
+                        client.add,
+                        mem0_messages,
+                        user_id=mem0_user_id,
+                        agent_id=mem0_agent_id,
+                    )
+
+            await breaker.call_with_breaker(_do_add)
+        except CircuitOpenError:
+            breaker.enqueue_retry(mem0_messages, mem0_user_id, mem0_agent_id)
+            logger.debug(
+                "Mem0 add queued (circuit opened during call) for agent_id=%s",
+                mem0_agent_id,
             )
-    except Exception:
-        logger.exception("Mem0 add failed for agent_id=%s", mem0_agent_id)
+        except Exception:
+            logger.exception("Mem0 add failed for agent_id=%s", mem0_agent_id)
+            breaker.enqueue_retry(mem0_messages, mem0_user_id, mem0_agent_id)
 
 
 # ---------------------------------------------------------------------------

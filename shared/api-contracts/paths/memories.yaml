@@ -32,6 +32,55 @@
             schema:
               $ref: "../schemas/common.yaml#/RateLimitError"
 
+/memories/{memory_id}:
+  delete:
+    operationId: delete_global_memory
+    summary: Delete a single global memory
+    description: >
+      Delete a single global (non-character-scoped) memory from Mem0.
+      Validates that the memory belongs to the authenticated user.
+      Idempotent: returns 204 even if the memory_id does not exist.
+    tags:
+      - memories
+    parameters:
+      - name: memory_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      "204":
+        description: Memory deleted (no content)
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Memory does not belong to user
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+      "503":
+        description: Memory service unavailable
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+
 /characters/{character_id}/memories:
   get:
     operationId: get_character_memories

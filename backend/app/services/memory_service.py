@@ -217,6 +217,89 @@ class MemoryService:
 
         return self._map_memories(results)
 
+    async def delete_global_memory(
+        self,
+        mem0_user_id: str,
+        memory_id: str,
+    ) -> None:
+        """Delete a single global memory from Mem0.
+
+        Validates that the memory belongs to the authenticated user by
+        fetching the memory from Mem0 and checking its user_id metadata.
+
+        Idempotent: returns successfully even if memory_id does not exist.
+
+        Raises:
+            HTTPException(403): Memory does not belong to user.
+            HTTPException(503): Mem0 API unavailable or circuit breaker open.
+        """
+        self._check_circuit()
+
+        # Step 1: Fetch memory from Mem0 for ownership validation
+        try:
+            breaker = get_mem0_circuit_breaker()
+
+            async def _do_get() -> dict[str, object]:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "get"):
+                    return await asyncio.to_thread(client.get, memory_id)
+
+            memory = await breaker.call_with_breaker(_do_get)
+        except CircuitOpenError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
+        except Exception as exc:
+            exc_str = str(exc).lower()
+            if "not found" in exc_str or "404" in exc_str:
+                logger.debug(
+                    "Mem0 get memory_id=%s not found (treated as success)", memory_id,
+                )
+                return
+            logger.exception(
+                "Mem0 get failed for memory_id=%s", memory_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
+
+        # Step 2: Verify ownership
+        if memory.get("user_id") != mem0_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Memory does not belong to user",
+            )
+
+        # Step 3: Delete memory from Mem0
+        try:
+            async def _do_delete() -> None:
+                client = MemoryClient(api_key=settings.mem0_api_key)
+                async with log_external_call("mem0", "delete"):
+                    await asyncio.to_thread(client.delete, memory_id)
+
+            await breaker.call_with_breaker(_do_delete)
+        except CircuitOpenError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
+        except Exception as exc:
+            exc_str = str(exc).lower()
+            if "not found" in exc_str or "404" in exc_str:
+                logger.debug(
+                    "Mem0 delete memory_id=%s not found (treated as success)", memory_id,
+                )
+                return
+            logger.exception(
+                "Mem0 delete failed for memory_id=%s", memory_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Memory service temporarily unavailable",
+            ) from None
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------

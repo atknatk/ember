@@ -47,6 +47,27 @@ async def get_global_memories(
     return MemoryListResponse(memories=items)
 
 
+@global_router.delete(
+    "/memories/{memory_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_global_memory(
+    memory_id: str,
+    current_user: Profile = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete a single global memory from Mem0.
+
+    Validates that the memory belongs to the authenticated user.
+    Idempotent: returns 204 even if the memory_id does not exist.
+    """
+    service = MemoryService(db)
+    await service.delete_global_memory(
+        mem0_user_id=current_user.mem0_user_id,
+        memory_id=memory_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Character-scoped memories router — registered under /api/v1/characters
 # ---------------------------------------------------------------------------

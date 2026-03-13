@@ -64,6 +64,8 @@ paths:
 
   /memories:
     $ref: "paths/memories.yaml#/~1memories"
+  /memories/{memory_id}:
+    $ref: "paths/memories.yaml#/~1memories~1{memory_id}"
   /characters/{character_id}/memories:
     $ref: "paths/memories.yaml#/~1characters~1{character_id}~1memories"
   /characters/{character_id}/memories/{memory_id}:

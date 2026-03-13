@@ -39,6 +39,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P02-04] Proactive message generator with Mem0 + Claude Haiku personalization and in-memory caching
 - [P03-01] iOS scaffold with SwiftUI app entry, tab navigation, and design system
 - [P03-02] iOS network layer with APIClient, SSE streaming, and 401 retry
+- [P03-03] iOS Cognito auth with Keychain token storage, LoginView, SignUpView, and transparent token refresh
 
 ---
 

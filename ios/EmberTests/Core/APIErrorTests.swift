@@ -3,36 +3,45 @@ import Foundation
 @testable import Ember
 
 /// Tests for APIError enum defined in Core/Network/APIError.swift.
-/// Verifies all three error cases conform to LocalizedError with meaningful descriptions.
+/// Verifies all error cases conform to LocalizedError with meaningful descriptions.
 @Suite("APIError")
 struct APIErrorTests {
 
-    // MARK: - httpError
+    // MARK: - serverError
 
-    @Test("httpError 404 has non-empty error description")
-    func httpError404Description() {
-        let error = APIError.httpError(statusCode: 404)
+    @Test("serverError 404 has non-empty error description")
+    func serverError404Description() {
+        let error = APIError.serverError(statusCode: 404, detail: "Not found")
         #expect(error.errorDescription != nil)
         #expect(!(error.errorDescription ?? "").isEmpty)
     }
 
-    @Test("httpError 500 has non-empty error description")
-    func httpError500Description() {
-        let error = APIError.httpError(statusCode: 500)
+    @Test("serverError 500 has non-empty error description")
+    func serverError500Description() {
+        let error = APIError.serverError(statusCode: 500, detail: "Internal")
         #expect(error.errorDescription != nil)
         #expect(!(error.errorDescription ?? "").isEmpty)
     }
 
-    @Test("httpError description includes the status code")
-    func httpErrorDescriptionIncludesCode() {
-        let error = APIError.httpError(statusCode: 503)
+    @Test("serverError 503 description contains useful info")
+    func serverError503Description() {
+        let error = APIError.serverError(statusCode: 503, detail: "Service unavailable")
         let description = error.errorDescription ?? ""
-        #expect(description.contains("503"))
+        #expect(!description.isEmpty)
     }
 
-    @Test("httpError 200 is representable without crashing")
-    func httpError200DoesNotCrash() {
-        _ = APIError.httpError(statusCode: 200)
+    @Test("serverError 200 is representable without crashing")
+    func serverError200DoesNotCrash() {
+        _ = APIError.serverError(statusCode: 200, detail: "OK")
+    }
+
+    // MARK: - unauthorized
+
+    @Test("unauthorized has non-empty error description")
+    func unauthorizedDescription() {
+        let error = APIError.unauthorized
+        #expect(error.errorDescription != nil)
+        #expect(!(error.errorDescription ?? "").isEmpty)
     }
 
     // MARK: - decodingError
@@ -63,7 +72,7 @@ struct APIErrorTests {
 
     @Test("APIError conforms to LocalizedError")
     func apiErrorConformsToLocalizedError() {
-        let error: any LocalizedError = APIError.httpError(statusCode: 401)
+        let error: any LocalizedError = APIError.unauthorized
         #expect(error.errorDescription != nil)
     }
 

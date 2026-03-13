@@ -28,8 +28,18 @@ class NavigationTest {
     }
 
     @Test
+    fun `auth screen route is auth`() {
+        assertEquals("auth", Screen.Auth.route)
+    }
+
+    @Test
     fun `all screen routes are unique`() {
-        val routes = listOf(Screen.Home.route, Screen.Memories.route, Screen.Profile.route)
+        val routes = listOf(
+            Screen.Auth.route,
+            Screen.Home.route,
+            Screen.Memories.route,
+            Screen.Profile.route,
+        )
         assertEquals(routes.size, routes.toSet().size)
     }
 

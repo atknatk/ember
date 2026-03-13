@@ -39,7 +39,8 @@ User B + Character Luna  →  one conversation, forever (isolated from User A)
 ```
 
 **Technical consequence**: There is no endpoint to create a conversation.
-A conversation is created implicitly on the first `POST /characters/:id/messages`.
+A conversation is auto-created when a character is created (in `CharacterService.create_character()`).
+The chat service has a defensive `_get_or_create_conversation` as fallback.
 
 ### Message Endpoint
 
@@ -125,8 +126,8 @@ user_id = request.query_params.get("user_id")  # ← SECURITY VULNERABILITY
 
 ### Agent Names
 
-`backend-agent`, `ios-agent`, `android-agent`, `qa-agent`, `devops-agent`,
-`frontend-agent`, `fullstack-agent`, `architect-agent`, `pm-agent`
+`backend-dev`, `ios-dev`, `android-dev`, `backend-tester`, `ios-tester`, `android-tester`,
+`architect`, `doc-writer`, `reviewer`
 
 ### Platform Tags
 
@@ -135,12 +136,12 @@ user_id = request.query_params.get("user_id")  # ← SECURITY VULNERABILITY
 ### Examples
 
 ```bash
-git commit -m "feat(chat): add SSE streaming support [agent:backend-agent] [platform:backend]"
-git commit -m "fix(auth): handle Cognito token expiry on 401 [agent:ios-agent] [platform:ios]"
-git commit -m "feat(memory): display Mem0 memories in settings [agent:android-agent] [platform:android]"
-git commit -m "test(chat): add ChatViewModel unit tests [agent:qa-agent] [platform:ios]"
-git commit -m "refactor(api): extract LLM provider abstraction [agent:backend-agent] [platform:backend]"
-git commit -m "docs(standards): add cursor pagination rules [agent:architect-agent] [platform:all]"
+git commit -m "feat(chat): add SSE streaming support [agent:backend-dev] [platform:backend]"
+git commit -m "fix(auth): handle Cognito token expiry on 401 [agent:ios-dev] [platform:ios]"
+git commit -m "feat(memory): display Mem0 memories in settings [agent:android-dev] [platform:android]"
+git commit -m "test(chat): add ChatViewModel unit tests [agent:ios-tester] [platform:ios]"
+git commit -m "refactor(api): extract LLM provider abstraction [agent:backend-dev] [platform:backend]"
+git commit -m "docs(standards): add cursor pagination rules [agent:architect] [platform:all]"
 ```
 
 ---
@@ -228,6 +229,8 @@ google-services.json    # if contains private keys
 
 ```bash
 # .env.example
+DEBUG=true
+LOG_LEVEL=INFO
 DATABASE_URL=
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
@@ -236,6 +239,24 @@ ELEVENLABS_API_KEY=
 COGNITO_USER_POOL_ID=
 COGNITO_APP_CLIENT_ID=
 AWS_REGION=us-east-1
+LLM_PROVIDER=claude
+CLAUDE_MODEL=claude-sonnet-4-6
+CLAUDE_HAIKU_MODEL=claude-haiku-4-5
+OPENAI_MODEL=gpt-4o
+OPENAI_FAST_MODEL=gpt-4o-mini
+S3_BUCKET_NAME=
+FIREBASE_CREDENTIALS_JSON=
+RATE_LIMIT_CHAT=10
+RATE_LIMIT_WRITE=20
+RATE_LIMIT_READ=60
+CORS_ORIGINS=*
+SENTRY_DSN=
+SENTRY_ENVIRONMENT=development
+MAX_CONTEXT_MESSAGES=50
+MEM0_CIRCUIT_FAILURE_THRESHOLD=3
+MEM0_CIRCUIT_RECOVERY_TIMEOUT=60.0
+MEM0_CACHE_TTL=300.0
+MEM0_RETRY_QUEUE_MAX_SIZE=100
 ```
 
 ---
@@ -278,7 +299,7 @@ These rules apply on all platforms.
 - OFFSET/LIMIT is forbidden in all new code.
 - Cursor encodes `(created_at, id)` as base64 URL-safe JSON.
 - Index required: `(user_id, character_id, created_at DESC, id DESC)`.
-- Default `limit`: 30. Maximum `limit`: 100.
+- Default `limit`: 20. Maximum `limit`: 100.
 - Response always includes `next_cursor` (string or null) and `has_more` (boolean).
 
 ### Rules (Mobile)

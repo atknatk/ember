@@ -24,7 +24,7 @@
 
 **Key insight**: Ember is NOT session-based like ChatGPT. Each character has ONE
 continuous conversation forever. Mem0 provides long-term memory across time.
-Context window: last 20 messages + Mem0 semantic search results (max 10 memories).
+Context window: last 50 messages (configurable via `max_context_messages`) + Mem0 semantic search results (max 10 memories).
 
 ## Full Documentation
 
@@ -111,7 +111,7 @@ All architectural decisions, data models, API contracts, and feature specs live 
    ```
 4. **No hardcoded secrets** — use AWS Secrets Manager / Parameter Store
 5. **JWT extraction** — always get `user_id` from JWT, never from request body
-6. **Rate limiting** — 20 req/min per user (Phase 1.5, see P1.5-01)
+6. **Rate limiting** — grouped: 10/min chat, 20/min write, 60/min read (see `config.py`)
 7. **Memory isolation** — `agent_id = f"{template}_{user_id}"` per character
 
 ### iOS

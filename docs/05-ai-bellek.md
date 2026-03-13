@@ -6,10 +6,13 @@
 
 Her konuşma tamamlandıktan sonra arka planda çalışır (kullanıcı beklemez):
 
-```
-mem0.add(
-  [kullanıcı_mesajı, ai_yanıtı],
-  { user_id: mem0_user_id }
+```python
+client = MemoryClient(api_key=settings.mem0_api_key)
+await asyncio.to_thread(
+    client.add,
+    [kullanıcı_mesajı, ai_yanıtı],
+    user_id=mem0_user_id,
+    agent_id=agent_id,
 )
 ```
 
@@ -24,10 +27,14 @@ Mem0 konuşmadan otomatik gerçek çıkarır. Manuel etiketleme gerekmez.
 
 Her yeni mesaj gelmeden önce çalışır:
 
-```
-mem0.search(
-  kullanıcı_mesajı,
-  { filters: { user_id: mem0_user_id } }
+```python
+client = MemoryClient(api_key=settings.mem0_api_key)
+results = await asyncio.to_thread(
+    client.search,
+    kullanıcı_mesajı,
+    user_id=mem0_user_id,
+    agent_id=agent_id,
+    limit=10,
 )
 ```
 
@@ -122,8 +129,8 @@ Tahmini tasarruf: Her konuşmada %30–50 token azalması.
 
 ### Konuşma Geçmişi Sınırı
 
-Sadece son 20 mesaj Claude'a gönderilir. Daha eski mesajlar Mem0'da memory olarak yaşar.
-Bu sayede uzun konuşmalarda token maliyeti sabit kalır.
+Sadece son 50 mesaj Claude'a gonderilir (`max_context_messages` config ile ayarlanabilir). Daha eski mesajlar Mem0'da memory olarak yasar.
+Bu sayede uzun konusmalarda token maliyeti sabit kalir.
 
 ---
 
@@ -134,13 +141,13 @@ Her karakter kendi izole bellek alanında çalışır. Mem0'nun `agent_id` param
 ### Memory Ekleme (Karaktere Özel)
 
 ```python
-# English Teacher konuşması bitince
-mem0.add(
+# English Teacher konusmasi bitince
+client = MemoryClient(api_key=settings.mem0_api_key)
+await asyncio.to_thread(
+    client.add,
     [user_message, ai_response],
-    {
-        "user_id": mem0_user_id,
-        "agent_id": "english_teacher_a3f9b2c1"
-    }
+    user_id=mem0_user_id,
+    agent_id="english_teacher_a3f9b2c1",
 )
 ```
 
@@ -150,17 +157,17 @@ Her AI çağrısında iki arama **paralel** olarak çalışır:
 
 ```python
 import asyncio
+from mem0 import MemoryClient
 
 async def get_memories(query: str, user_id: str, agent_id: str):
-    # 1. Global memories: temel kullanıcı bilgileri (tüm karakterlerin görebildiği)
-    # 2. Karaktere özel memories: sadece bu karakterin biriktirdikleri
-    global_task = mem0.search_async(
-        query,
-        {"filters": {"user_id": user_id}}
+    client = MemoryClient(api_key=settings.mem0_api_key)
+    # 1. Global memories: temel kullanici bilgileri (tum karakterlerin gorebildigi)
+    # 2. Karaktere ozel memories: sadece bu karakterin biriktirdikleri
+    global_task = asyncio.to_thread(
+        client.search, query, user_id=user_id, limit=5,
     )
-    character_task = mem0.search_async(
-        query,
-        {"filters": {"user_id": user_id, "agent_id": agent_id}}
+    character_task = asyncio.to_thread(
+        client.search, query, user_id=user_id, agent_id=agent_id, limit=5,
     )
     global_mems, character_mems = await asyncio.gather(global_task, character_task)
     return global_mems[:5] + character_mems[:5]  # Toplam max 10

@@ -8,7 +8,7 @@
 - AWS Cognito JWT token'ları (RS256) — sunucu tarafında doğrulanır
 - Access token süresi: 1 saat
 - Refresh token süresi: 30 gün
-- Rate limiting: Kullanıcı başına dakikada maksimum 20 istek
+- Rate limiting: Gruplu limitler — chat: 10/dk, write: 20/dk, read: 60/dk (kullanici basina, `config.py` ayarlanabilir)
 
 ### İçerik Moderasyonu
 

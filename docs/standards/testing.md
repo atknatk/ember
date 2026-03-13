@@ -105,15 +105,44 @@ pytest --cov=app --cov-report=html
 ### conftest.py Pattern
 
 ```python
-# tests/conftest.py
+# tests/conftest.py — default mock-based conftest (unit tests)
+import os
+os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://ember:ember@localhost:5432/ember_test")
+
+from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock
+
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from httpx import ASGITransport, AsyncClient
+
+from app.dependencies import get_db
 from app.main import app
+
+
+async def _override_get_db() -> AsyncGenerator[AsyncMock, None]:
+    yield AsyncMock()
+
+
+@pytest_asyncio.fixture
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    app.dependency_overrides[get_db] = _override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
+```
+
+**Integration test conftest pattern** (for tests needing a real database):
+
+```python
+# tests/integration/conftest.py
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.dependencies import get_db, get_current_user
 from app.models.base import Base
-from app.models.user import User
+from app.models.profile import Profile
 
 TEST_DATABASE_URL = "postgresql+asyncpg://ember:ember@localhost/ember_test"
 
@@ -135,32 +164,6 @@ async def db() -> AsyncSession:
     async with TestSession() as session:
         yield session
         await session.rollback()  # isolate each test
-
-
-@pytest_asyncio.fixture
-def fake_user() -> User:
-    return User(
-        id="test-user-id",
-        cognito_sub="test-sub-123",
-        email="test@ember.ai",
-    )
-
-
-@pytest_asyncio.fixture
-async def client(db: AsyncSession, fake_user: User) -> AsyncClient:
-    async def override_db():
-        yield db
-
-    async def override_user():
-        return fake_user
-
-    app.dependency_overrides[get_db] = override_db
-    app.dependency_overrides[get_current_user] = override_user
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c
-
-    app.dependency_overrides.clear()
 ```
 
 ### Route Tests

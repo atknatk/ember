@@ -220,7 +220,7 @@ Yanıt (200): Yeni access token
       "template": "companion",
       "is_default": true,
       "avatar_style": "purple",
-      "last_conversation_at": "2026-02-23T14:30:00Z"
+      "last_message_at": "2026-02-23T14:30:00Z"
     }
   ]
 }
@@ -279,7 +279,7 @@ Konuşma geçmişi olan karakter deaktive edilir, fiziksel silinmez.
   "memories": [
     {
       "id": "mem0-uuid",
-      "content": "Confuses 'affect' vs 'effect'",
+      "memory": "Confuses 'affect' vs 'effect'",
       "created_at": "2026-02-20T10:00:00Z"
     }
   ]
@@ -316,16 +316,36 @@ data: {"type": "chunk", "content": "! Let's start"}
 ...
 data: {"type": "action", "action": "SET_ALARM", "payload": {"time": "07:00", "label": "Wake up"}}
 data: {"type": "done", "message_id": "uuid"}
+data: {"type": "error", "message": "LLM service unavailable"}
 ```
 
 `action` event'i cihaz entegrasyon komutları için kullanılır (alarm, takvim).
+`error` event'i stream sırasında bir hata oluştuğunda gönderilir.
 
 ---
 
-**GET /characters/:id/messages?cursor={created_at_iso}**
+**GET /characters/:id/messages?cursor={opaque_base64_cursor}&limit=20**
 
-Cursor-based sayfalı mesaj listesi, en yeniden en eskiye sıralı (20 mesaj/sayfa).
-`cursor` belirtilmezse en son 20 mesaj döner. Scroll up'ta son yüklenen mesajın `created_at` değeri cursor olarak gönderilir.
+Cursor-based sayfalı mesaj listesi, en yeniden en eskiye sıralı (varsayılan 20 mesaj/sayfa).
+`cursor` belirtilmezse en son 20 mesaj döner. Bir sonraki sayfa icin `next_cursor` degerini `cursor` parametresi olarak gonderin. Cursor opaque bir base64 string'dir; istemciler tarafindan elle olusturulmamalidir.
+
+Yanit (200):
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "role": "assistant",
+      "content": "Great! Let's start with vocabulary.",
+      "media_url": null,
+      "metadata": null,
+      "created_at": "2026-02-23T14:31:00Z"
+    }
+  ],
+  "next_cursor": "eyJ0cyI6ICIyMDI2LTAyLTIzVDE0OjMwOjAwWiIsICJpZCI6ICJ...",
+  "has_more": true
+}
+```
 
 ---
 
@@ -459,14 +479,13 @@ DELETE /partners                   → Bağlantıyı kes
 
 ---
 
-### Hata Formatı
+### Hata Formati
+
+Tum API hatalari asagidaki formatta doner:
 
 ```json
 {
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Invalid or expired token."
-  }
+  "detail": "Human-readable error message"
 }
 ```
 
@@ -476,5 +495,7 @@ DELETE /partners                   → Bağlantıyı kes
 | 401 | Authentication failed |
 | 403 | Forbidden (e.g., deleting default character) |
 | 404 | Resource not found |
+| 422 | Validation failed (Pydantic) |
 | 429 | Rate limit exceeded |
 | 500 | Server error |
+| 503 | External service unavailable (LLM, Mem0) |

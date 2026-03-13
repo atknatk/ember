@@ -38,6 +38,9 @@ jobs:
           MEM0_API_KEY: test
           ANTHROPIC_API_KEY: test
 
+      - name: Check doc-code sync
+        run: python scripts/check_doc_code_sync.py
+
       - name: Validate OpenAPI specs
         run: python scripts/validate_openapi.py
         env:

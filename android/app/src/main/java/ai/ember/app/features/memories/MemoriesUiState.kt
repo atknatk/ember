@@ -1,5 +1,6 @@
 package ai.ember.app.features.memories
 
+import ai.ember.app.core.error.EmberError
 import ai.ember.app.core.models.Character
 import ai.ember.app.core.models.MemoryItem
 
@@ -30,6 +31,7 @@ sealed interface MemoriesUiState {
         val memories: List<MemoryItem> = emptyList(),
         val isLoadingMemories: Boolean = false,
         val isDeletingMemoryId: String? = null,
+        val currentError: EmberError? = null,
     ) : MemoriesUiState
 
     /** Loading failed with a user-facing error message. */

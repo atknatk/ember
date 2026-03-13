@@ -1,5 +1,6 @@
 package ai.ember.app.features.profile
 
+import ai.ember.app.core.error.EmberError
 import ai.ember.app.core.models.Character
 
 /**
@@ -23,6 +24,7 @@ sealed interface ProfileUiState {
         val isUploadingAvatar: Boolean = false,
         val notificationPreferences: Map<String, Boolean> = emptyMap(),
         val snackbarMessage: String? = null,
+        val currentError: EmberError? = null,
     ) : ProfileUiState
 
     /** Loading failed with a user-facing error message. */

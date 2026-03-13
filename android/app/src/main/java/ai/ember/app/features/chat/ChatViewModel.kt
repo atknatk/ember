@@ -3,6 +3,7 @@ package ai.ember.app.features.chat
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ai.ember.app.core.error.EmberError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,9 +71,8 @@ class ChatViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
-                    _uiState.value = ChatUiState.Error(
-                        e.message ?: "Failed to load messages",
-                    )
+                    val emberError = EmberError.from(e)
+                    _uiState.value = ChatUiState.Error(emberError.userMessage)
                 }
         }
     }
@@ -138,11 +138,13 @@ class ChatViewModel @Inject constructor(
             chatRepository.streamMessage(characterId, content)
                 .catch { e ->
                     val state = _uiState.value as? ChatUiState.Success ?: return@catch
+                    val emberError = EmberError.from(e)
                     // Remove empty assistant message if present
                     val cleanedMessages = removeEmptyAssistantTail(state.messages)
                     _uiState.value = state.copy(
                         messages = cleanedMessages,
                         isStreaming = false,
+                        currentError = emberError,
                     )
                 }
                 .collect { event ->
@@ -155,6 +157,14 @@ class ChatViewModel @Inject constructor(
                 _uiState.value = finalState.copy(isStreaming = false)
             }
         }
+    }
+
+    /**
+     * Dismisses the current transient error banner.
+     */
+    fun dismissError() {
+        val state = _uiState.value as? ChatUiState.Success ?: return
+        _uiState.value = state.copy(currentError = null)
     }
 
     /**

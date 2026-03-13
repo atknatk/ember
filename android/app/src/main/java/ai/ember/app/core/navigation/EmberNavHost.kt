@@ -29,6 +29,7 @@ import ai.ember.app.features.auth.AuthViewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.compose.ui.res.stringResource
+import ai.ember.app.core.network.NetworkMonitor
 import ai.ember.app.features.chat.ChatScreen
 import ai.ember.app.features.home.HomeScreen
 import ai.ember.app.features.memories.MemoriesScreen
@@ -48,7 +49,9 @@ import ai.ember.app.features.profile.ProfileScreen
  * Matches iOS AppRouter + MainTabView structure.
  */
 @Composable
-fun EmberNavHost() {
+fun EmberNavHost(
+    networkMonitor: NetworkMonitor? = null,
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -141,10 +144,13 @@ fun EmberNavHost() {
                     onNavigateToCreateCharacter = {
                         navController.navigate(Screen.CreateCharacter.route)
                     },
+                    networkMonitor = networkMonitor,
                 )
             }
             composable(Screen.Memories.route) {
-                MemoriesScreen()
+                MemoriesScreen(
+                    networkMonitor = networkMonitor,
+                )
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(
@@ -155,6 +161,7 @@ fun EmberNavHost() {
                             launchSingleTop = true
                         }
                     },
+                    networkMonitor = networkMonitor,
                 )
             }
             composable(
@@ -168,6 +175,7 @@ fun EmberNavHost() {
             ) {
                 ChatScreen(
                     onNavigateBack = { navController.popBackStack() },
+                    networkMonitor = networkMonitor,
                 )
             }
             composable(

@@ -77,6 +77,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
+import ai.ember.app.core.network.NetworkMonitor
+import ai.ember.app.core.ui.components.ErrorBanner
+import ai.ember.app.core.ui.components.OfflineBanner
 import ai.ember.app.core.ui.components.ProfileSkeletonLoader
 import ai.ember.app.core.ui.theme.EmberBackground
 import ai.ember.app.core.ui.theme.EmberError
@@ -104,11 +107,16 @@ import coil.request.ImageRequest
 fun ProfileScreen(
     onSignOut: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
+    networkMonitor: NetworkMonitor? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shouldSignOut by viewModel.shouldSignOut.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val isOnlineState by (networkMonitor?.isOnline ?: remember {
+        kotlinx.coroutines.flow.MutableStateFlow(true)
+    }).collectAsStateWithLifecycle()
+    val isOffline = !isOnlineState
 
     // Handle sign-out navigation
     LaunchedEffect(shouldSignOut) {
@@ -130,22 +138,31 @@ fun ProfileScreen(
         containerColor = EmberBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
-        when (val state = uiState) {
-            is ProfileUiState.Loading -> LoadingState(
-                modifier = modifier.padding(paddingValues),
-            )
+        Box(modifier = modifier.padding(paddingValues)) {
+            when (val state = uiState) {
+                is ProfileUiState.Loading -> LoadingState()
 
-            is ProfileUiState.Success -> SuccessContent(
-                state = state,
-                viewModel = viewModel,
-                modifier = modifier.padding(paddingValues),
-            )
+                is ProfileUiState.Success -> SuccessContent(
+                    state = state,
+                    viewModel = viewModel,
+                )
 
-            is ProfileUiState.Error -> ErrorState(
-                message = state.message,
-                onRetry = viewModel::loadProfile,
-                modifier = modifier.padding(paddingValues),
-            )
+                is ProfileUiState.Error -> ErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadProfile,
+                )
+            }
+
+            // Error banners overlay at the top
+            Column(modifier = Modifier.align(Alignment.TopCenter)) {
+                OfflineBanner(isOffline = isOffline)
+                val currentError = (uiState as? ProfileUiState.Success)?.currentError
+                ErrorBanner(
+                    error = currentError,
+                    onDismiss = viewModel::dismissError,
+                    onRetry = viewModel::loadProfile,
+                )
+            }
         }
     }
 }

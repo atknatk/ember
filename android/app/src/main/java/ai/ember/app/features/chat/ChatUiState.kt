@@ -1,5 +1,7 @@
 package ai.ember.app.features.chat
 
+import ai.ember.app.core.error.EmberError
+
 /**
  * Sealed UI state for the Chat screen.
  *
@@ -19,6 +21,7 @@ sealed interface ChatUiState {
         val hasMoreMessages: Boolean = false,
         val nextCursor: String? = null,
         val characterName: String = "",
+        val currentError: EmberError? = null,
     ) : ChatUiState
 
     /** Loading failed with a user-facing error message. */

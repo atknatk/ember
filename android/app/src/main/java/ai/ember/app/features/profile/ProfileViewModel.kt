@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ai.ember.app.core.auth.AuthRepository
+import ai.ember.app.core.error.EmberError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,9 +64,8 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
-                    _uiState.value = ProfileUiState.Error(
-                        e.message ?: "Something went wrong. Please try again.",
-                    )
+                    val emberError = EmberError.from(e)
+                    _uiState.value = ProfileUiState.Error(emberError.userMessage)
                 }
         }
     }
@@ -129,9 +129,10 @@ class ProfileViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val latestState = _uiState.value as? ProfileUiState.Success ?: return@launch
+                    val emberError = EmberError.from(e)
                     _uiState.value = latestState.copy(
                         isSaving = false,
-                        snackbarMessage = e.message ?: "Failed to update name",
+                        currentError = emberError,
                     )
                 }
         }
@@ -156,9 +157,10 @@ class ProfileViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val latestState = _uiState.value as? ProfileUiState.Success ?: return@launch
+                    val emberError = EmberError.from(e)
                     _uiState.value = latestState.copy(
                         isSaving = false,
-                        snackbarMessage = e.message ?: "Failed to update timezone",
+                        currentError = emberError,
                     )
                 }
         }
@@ -183,9 +185,10 @@ class ProfileViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val latestState = _uiState.value as? ProfileUiState.Success ?: return@launch
+                    val emberError = EmberError.from(e)
                     _uiState.value = latestState.copy(
                         isSaving = false,
-                        snackbarMessage = e.message ?: "Failed to update language",
+                        currentError = emberError,
                     )
                 }
         }
@@ -231,9 +234,10 @@ class ProfileViewModel @Inject constructor(
 
     private fun handleAvatarError(e: Throwable) {
         val latestState = _uiState.value as? ProfileUiState.Success ?: return
+        val emberError = EmberError.from(e)
         _uiState.value = latestState.copy(
             isUploadingAvatar = false,
-            snackbarMessage = e.message ?: "Failed to upload avatar",
+            currentError = emberError,
         )
     }
 
@@ -305,11 +309,12 @@ class ProfileViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val latestState = _uiState.value as? ProfileUiState.Success ?: return@launch
+                    val emberError = EmberError.from(e)
                     _uiState.value = latestState.copy(
                         isSaving = false,
                         showDeleteConfirmation = false,
                         deleteConfirmationText = "",
-                        snackbarMessage = e.message ?: "Failed to delete account",
+                        currentError = emberError,
                     )
                 }
         }
@@ -343,6 +348,14 @@ class ProfileViewModel @Inject constructor(
     fun clearSnackbar() {
         val currentState = _uiState.value as? ProfileUiState.Success ?: return
         _uiState.value = currentState.copy(snackbarMessage = null)
+    }
+
+    /**
+     * Dismisses the current transient error banner.
+     */
+    fun dismissError() {
+        val currentState = _uiState.value as? ProfileUiState.Success ?: return
+        _uiState.value = currentState.copy(currentError = null)
     }
 
     companion object {

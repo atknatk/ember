@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ai.ember.app.core.auth.AuthRepository
+import ai.ember.app.core.error.EmberError
 import ai.ember.app.core.models.Character
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,16 +83,26 @@ class HomeViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e ->
-                    // On refresh failure, keep existing data
+                    val emberError = EmberError.from(e)
+                    // On refresh failure, keep existing data and show banner
                     if (currentState is HomeUiState.Success) {
-                        _uiState.value = currentState.copy(isRefreshing = false)
-                    } else {
-                        _uiState.value = HomeUiState.Error(
-                            e.message ?: "Something went wrong. Please try again.",
+                        _uiState.value = currentState.copy(
+                            isRefreshing = false,
+                            currentError = emberError,
                         )
+                    } else {
+                        _uiState.value = HomeUiState.Error(emberError.userMessage)
                     }
                 }
         }
+    }
+
+    /**
+     * Dismisses the current transient error banner.
+     */
+    fun dismissError() {
+        val currentState = _uiState.value as? HomeUiState.Success ?: return
+        _uiState.value = currentState.copy(currentError = null)
     }
 
     /**

@@ -33,6 +33,8 @@ tags:
     description: FCM token management and push notifications
   - name: profile
     description: User profile management
+  - name: tts
+    description: Text-to-speech audio generation
 
 security:
   - bearerAuth: []
@@ -86,3 +88,6 @@ paths:
     $ref: "paths/profile.yaml#/~1profile"
   /profile/account:
     $ref: "paths/profile.yaml#/~1profile~1account"
+
+  /tts:
+    $ref: "paths/tts.yaml#/~1tts"

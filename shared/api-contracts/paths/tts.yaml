@@ -1,0 +1,65 @@
+/tts:
+  post:
+    operationId: synthesize_speech
+    summary: Convert text to speech
+    description: >
+      Convert text to speech using ElevenLabs Flash v2.5 (primary) or
+      AWS Polly (fallback). Short texts (< 150 characters) are routed
+      directly to Polly for lower latency and cost. Generated audio is
+      cached in S3 with hash-based keys for deduplication.
+    tags:
+      - tts
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/tts.yaml#/TTSRequest"
+    responses:
+      "200":
+        description: Audio generated successfully
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/tts.yaml#/TTSResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Character does not belong to user
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Character not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "422":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "429":
+        description: Rate limit exceeded
+        headers:
+          Retry-After:
+            schema:
+              type: integer
+            description: Seconds until the rate limit window resets
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/RateLimitError"
+      "503":
+        description: TTS service unavailable
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"

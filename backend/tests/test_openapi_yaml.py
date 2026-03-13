@@ -205,7 +205,7 @@ class TestContentCompleteness:
                 if isinstance(op, dict):
                     count += 1
 
-        assert count == 22, f"Expected 22 endpoints, found {count}"
+        assert count == 23, f"Expected 23 endpoints, found {count}"
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ class TestRootSpec:
         tag_names = {t["name"] for t in root.get("tags", [])}
         expected = {
             "health", "auth", "characters", "chat",
-            "memories", "media", "notifications", "onboarding", "profile",
+            "memories", "media", "notifications", "onboarding", "profile", "tts",
         }
         assert tag_names == expected, f"Missing tags: {expected - tag_names}"
 

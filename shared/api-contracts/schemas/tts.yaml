@@ -1,0 +1,38 @@
+TTSRequest:
+  type: object
+  required:
+    - text
+    - character_id
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 5000
+      description: The text to convert to speech
+    character_id:
+      type: string
+      minLength: 1
+      description: UUID of the character
+    voice_id:
+      type: string
+      maxLength: 100
+      nullable: true
+      description: Optional ElevenLabs voice ID override
+    language:
+      type: string
+      maxLength: 10
+      default: en
+      description: Language code (e.g., "en", "tr")
+
+TTSResponse:
+  type: object
+  required:
+    - audio_url
+  properties:
+    audio_url:
+      type: string
+      description: S3 URL of the generated audio file (MP3)
+    duration_seconds:
+      type: number
+      nullable: true
+      description: Duration of the audio in seconds (may be null)

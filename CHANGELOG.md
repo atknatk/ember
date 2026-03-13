@@ -35,6 +35,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P02-01] Activity tracking middleware with background upsert for user_activity
 - [P02-05] Content moderation pipeline with abuse escalation and therapist crisis detection
 - [P02-02] APScheduler-based notification scheduler with timezone-aware triggers and midnight reset
+- [P02-03] Firebase Cloud Messaging push notification service with token management endpoints
 
 ---
 

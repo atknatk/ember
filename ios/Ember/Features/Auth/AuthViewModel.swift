@@ -108,6 +108,7 @@ final class AuthViewModel {
         errorMessage = nil
         isShowingSignUp = false
         emailHasBeenEdited = false
+        showErrorShake = false
     }
 
     func clearError() {

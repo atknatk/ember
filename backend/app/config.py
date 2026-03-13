@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     health_check_timeout: float = 3.0
     health_check_degraded_threshold: float = 1.0
 
+    # Notification Scheduler
+    notification_scheduler_enabled: bool = True
+    notification_scheduler_interval_minutes: int = 30
+    notification_batch_size: int = 100
+
     # Content Moderation
     moderation_enabled: bool = True
     moderation_fail_open: bool = True

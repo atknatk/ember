@@ -35,7 +35,9 @@ from app.schemas.chat import (
     ErrorEvent,
     MessageItem,
     MessageListResponse,
+    ModerationSSEEvent,
 )
+from app.services.content_moderation import ContentModerationService
 from app.services.llm.exceptions import LLMProviderError
 from app.services.llm.router import LLMRouter, get_llm_router
 from app.utils.timing import log_external_call
@@ -145,12 +147,36 @@ class ChatService:
         Returns a context dict with character, conversation, system_prompt,
         and formatted_messages for use in the streaming generator.
         """
-        # Step 2: Look up character (active, ownership check)
+        # Step 1: Look up character (active, ownership check)
         character = await self._get_active_character(character_id)
         if character.user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Character does not belong to user",
+            )
+
+        # Step 2: Content moderation check
+        moderation_service = ContentModerationService()
+        moderation_result = await moderation_service.check_message(
+            content=content,
+            user_id=user_id,
+            character_id=character_id,
+            character_template=character.template,
+            db=self.db,
+        )
+
+        if not moderation_result.allowed:
+            if moderation_result.blocked_until is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "detail": moderation_result.reason,
+                        "blocked_until": moderation_result.blocked_until.isoformat(),
+                    },
+                )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=moderation_result.reason,
             )
 
         # Step 3: Look up (or auto-create) conversation
@@ -187,6 +213,11 @@ class ChatService:
             character_memories=character_memories,
             profile=profile,
         )
+
+        # Step 5b: Append moderation augmentation if present
+        if moderation_result.augment_system_prompt:
+            system_prompt = f"{system_prompt}\n\n{moderation_result.augment_system_prompt}"
+
         formatted_messages = self._format_messages(recent_messages, content)
 
         return {
@@ -194,6 +225,7 @@ class ChatService:
             "conversation": conversation,
             "system_prompt": system_prompt,
             "formatted_messages": formatted_messages,
+            "moderation_result": moderation_result,
         }
 
     async def stream_response(  # noqa: ANN201
@@ -215,9 +247,24 @@ class ChatService:
         conversation: Conversation = context["conversation"]
         system_prompt: str = context["system_prompt"]
         formatted_messages: list[dict[str, str]] = context["formatted_messages"]
+        moderation_result = context.get("moderation_result")
 
         full_response = ""
         assistant_message_id = uuid.uuid4()
+
+        # Emit moderation SSE event for therapist crisis augmentation
+        if (
+            moderation_result is not None
+            and moderation_result.augment_system_prompt is not None
+            and character.template == "therapist"
+        ):
+            mod_event = ModerationSSEEvent(
+                message=(
+                    "I need to be careful here. If you're in crisis, please contact "
+                    "988 (Suicide & Crisis Lifeline) or text HOME to 741741."
+                ),
+            )
+            yield f"data: {mod_event.model_dump_json()}\n\n"
 
         try:
             provider = self._llm_router.get()

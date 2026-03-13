@@ -860,15 +860,15 @@ class TestLoadYamlSpecs:
         assert exc_info.value.code == 1
 
     def test_valid_contracts_dir_loads_paths(self) -> None:
-        """load_yaml_specs loads all 14 path keys from the real contracts directory.
+        """load_yaml_specs loads all path keys from the real contracts directory.
 
-        Note: 14 path keys cover 19 endpoint+method combinations
+        Note: 16 path keys cover endpoint+method combinations
         (some paths like /characters have both GET and POST operations).
         """
         contracts_dir = backend_dir.parent / "shared" / "api-contracts"
         yaml_paths = load_yaml_specs(contracts_dir)
-        assert len(yaml_paths) == 15, (
-            f"Expected 15 path keys from YAML specs, got {len(yaml_paths)}"
+        assert len(yaml_paths) == 16, (
+            f"Expected 16 path keys from YAML specs, got {len(yaml_paths)}"
         )
 
     def test_unresolvable_pointer_prints_warning_and_skips(

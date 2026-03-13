@@ -29,6 +29,8 @@ tags:
     description: S3 presigned URL generation
   - name: onboarding
     description: Onboarding flow completion
+  - name: notifications
+    description: FCM token management and push notifications
   - name: profile
     description: User profile management
 
@@ -76,6 +78,9 @@ paths:
 
   /onboarding/complete:
     $ref: "paths/onboarding.yaml#/~1onboarding~1complete"
+
+  /notifications/token:
+    $ref: "paths/notifications.yaml#/~1notifications~1token"
 
   /profile:
     $ref: "paths/profile.yaml#/~1profile"

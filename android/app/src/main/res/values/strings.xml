@@ -144,4 +144,11 @@
     <string name="onboarding_error_title">Error</string>
     <string name="onboarding_try_again">Try Again</string>
     <string name="onboarding_dismiss">Dismiss</string>
+
+    <!-- Error Handling -->
+    <string name="error_banner_retry">Retry</string>
+    <string name="error_banner_dismiss">Dismiss error</string>
+    <string name="error_banner_a11y">Error: %1$s</string>
+    <string name="offline_banner_message">You are offline</string>
+    <string name="offline_banner_a11y">No internet connection</string>
 </resources>

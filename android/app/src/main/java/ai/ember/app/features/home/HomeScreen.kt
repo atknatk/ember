@@ -62,7 +62,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
 import ai.ember.app.core.models.Character
 import ai.ember.app.core.models.MessagePreview
+import ai.ember.app.core.network.NetworkMonitor
+import ai.ember.app.core.ui.components.ErrorBanner
 import ai.ember.app.core.ui.components.HomeSkeletonLoader
+import ai.ember.app.core.ui.components.OfflineBanner
 import ai.ember.app.core.ui.components.emberCardShadow
 import ai.ember.app.core.ui.theme.EmberAccent
 import ai.ember.app.core.ui.theme.EmberPrimary
@@ -88,32 +91,47 @@ fun HomeScreen(
     onNavigateToChat: (characterId: String, characterName: String) -> Unit = { _, _ -> },
     onNavigateToCreateCharacter: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
+    networkMonitor: NetworkMonitor? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isOnlineState by (networkMonitor?.isOnline ?: remember {
+        kotlinx.coroutines.flow.MutableStateFlow(true)
+    }).collectAsStateWithLifecycle()
+    val isOffline = !isOnlineState
 
-    when (val state = uiState) {
-        is HomeUiState.Loading -> LoadingState(modifier = modifier)
+    Box(modifier = modifier) {
+        when (val state = uiState) {
+            is HomeUiState.Loading -> LoadingState()
 
-        is HomeUiState.Empty -> EmptyState(
-            userName = state.userName,
-            onAddCharacter = onNavigateToCreateCharacter,
-            modifier = modifier,
-        )
+            is HomeUiState.Empty -> EmptyState(
+                userName = state.userName,
+                onAddCharacter = onNavigateToCreateCharacter,
+            )
 
-        is HomeUiState.Success -> SuccessContent(
-            state = state,
-            viewModel = viewModel,
-            onNavigateToChat = onNavigateToChat,
-            onAddCharacter = onNavigateToCreateCharacter,
-            modifier = modifier,
-        )
+            is HomeUiState.Success -> SuccessContent(
+                state = state,
+                viewModel = viewModel,
+                onNavigateToChat = onNavigateToChat,
+                onAddCharacter = onNavigateToCreateCharacter,
+            )
 
-        is HomeUiState.Error -> ErrorState(
-            message = state.message,
-            onRetry = viewModel::loadCharacters,
-            modifier = modifier,
-        )
+            is HomeUiState.Error -> ErrorState(
+                message = state.message,
+                onRetry = viewModel::loadCharacters,
+            )
+        }
+
+        // Error banners overlay at the top
+        Column(modifier = Modifier.align(Alignment.TopCenter)) {
+            OfflineBanner(isOffline = isOffline)
+            val currentError = (uiState as? HomeUiState.Success)?.currentError
+            ErrorBanner(
+                error = currentError,
+                onDismiss = viewModel::dismissError,
+                onRetry = viewModel::loadCharacters,
+            )
+        }
     }
 }
 

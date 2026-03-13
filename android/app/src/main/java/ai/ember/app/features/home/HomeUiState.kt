@@ -1,5 +1,6 @@
 package ai.ember.app.features.home
 
+import ai.ember.app.core.error.EmberError
 import ai.ember.app.core.models.Character
 import ai.ember.app.core.models.MessagePreview
 
@@ -17,6 +18,7 @@ sealed interface HomeUiState {
         val lastMessages: Map<String, MessagePreview> = emptyMap(),
         val userName: String = "",
         val isRefreshing: Boolean = false,
+        val currentError: EmberError? = null,
     ) : HomeUiState
 
     /** No characters exist for this user. */

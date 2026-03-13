@@ -2,6 +2,7 @@ package ai.ember.app.features.memories
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ai.ember.app.core.error.EmberError
 import ai.ember.app.core.models.MemoryItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,9 +47,8 @@ class MemoriesViewModel @Inject constructor(
                     loadMemoriesForSegment(MemorySegment.Global)
                 }
                 .onFailure { e ->
-                    _uiState.value = MemoriesUiState.Error(
-                        e.message ?: "Something went wrong. Please try again.",
-                    )
+                    val emberError = EmberError.from(e)
+                    _uiState.value = MemoriesUiState.Error(emberError.userMessage)
                 }
         }
     }
@@ -99,11 +99,22 @@ class MemoriesViewModel @Inject constructor(
                         isDeletingMemoryId = null,
                     )
                 }
-                .onFailure {
-                    // Clear deleting state but keep memory in list
-                    _uiState.value = latestState.copy(isDeletingMemoryId = null)
+                .onFailure { e ->
+                    val emberError = EmberError.from(e)
+                    _uiState.value = latestState.copy(
+                        isDeletingMemoryId = null,
+                        currentError = emberError,
+                    )
                 }
         }
+    }
+
+    /**
+     * Dismisses the current transient error banner.
+     */
+    fun dismissError() {
+        val currentState = _uiState.value as? MemoriesUiState.Success ?: return
+        _uiState.value = currentState.copy(currentError = null)
     }
 
     /**

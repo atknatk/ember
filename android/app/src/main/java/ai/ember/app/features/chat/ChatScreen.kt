@@ -53,7 +53,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
+import ai.ember.app.core.network.NetworkMonitor
 import ai.ember.app.core.ui.components.ChatSkeletonLoader
+import ai.ember.app.core.ui.components.ErrorBanner
+import ai.ember.app.core.ui.components.OfflineBanner
 import ai.ember.app.core.ui.theme.EmberBackground
 import ai.ember.app.core.ui.theme.EmberPrimary
 import ai.ember.app.core.ui.theme.EmberShapes
@@ -74,10 +77,15 @@ import ai.ember.app.core.ui.theme.EmberSurface3
 fun ChatScreen(
     onNavigateBack: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
+    networkMonitor: NetworkMonitor? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val inputText by viewModel.inputText.collectAsStateWithLifecycle()
+    val isOnlineState by (networkMonitor?.isOnline ?: remember {
+        kotlinx.coroutines.flow.MutableStateFlow(true)
+    }).collectAsStateWithLifecycle()
+    val isOffline = !isOnlineState
 
     // Cancel SSE stream when leaving the screen
     DisposableEffect(Unit) {
@@ -97,35 +105,47 @@ fun ChatScreen(
         },
         modifier = modifier,
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .imePadding(),
         ) {
-            when (val state = uiState) {
-                is ChatUiState.Loading -> LoadingState(
-                    modifier = Modifier.weight(1f),
-                )
-
-                is ChatUiState.Success -> {
-                    ChatContent(
-                        state = state,
-                        onLoadMore = viewModel::loadMoreMessages,
+            Column(modifier = Modifier.fillMaxSize()) {
+                when (val state = uiState) {
+                    is ChatUiState.Loading -> LoadingState(
                         modifier = Modifier.weight(1f),
                     )
-                    ChatInputBar(
-                        inputText = inputText,
-                        onInputChanged = viewModel::onInputChanged,
-                        onSend = viewModel::sendMessage,
-                        isStreaming = state.isStreaming,
+
+                    is ChatUiState.Success -> {
+                        ChatContent(
+                            state = state,
+                            onLoadMore = viewModel::loadMoreMessages,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ChatInputBar(
+                            inputText = inputText,
+                            onInputChanged = viewModel::onInputChanged,
+                            onSend = viewModel::sendMessage,
+                            isStreaming = state.isStreaming,
+                        )
+                    }
+
+                    is ChatUiState.Error -> ErrorState(
+                        message = state.message,
+                        onRetry = viewModel::loadHistory,
+                        modifier = Modifier.weight(1f),
                     )
                 }
+            }
 
-                is ChatUiState.Error -> ErrorState(
-                    message = state.message,
-                    onRetry = viewModel::loadHistory,
-                    modifier = Modifier.weight(1f),
+            // Error banners overlay at the top
+            Column(modifier = Modifier.align(Alignment.TopCenter)) {
+                OfflineBanner(isOffline = isOffline)
+                val currentError = (uiState as? ChatUiState.Success)?.currentError
+                ErrorBanner(
+                    error = currentError,
+                    onDismiss = viewModel::dismissError,
                 )
             }
         }

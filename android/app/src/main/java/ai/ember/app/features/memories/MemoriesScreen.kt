@@ -62,7 +62,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.ember.app.R
 import ai.ember.app.core.models.Character
 import ai.ember.app.core.models.MemoryItem
+import ai.ember.app.core.network.NetworkMonitor
+import ai.ember.app.core.ui.components.ErrorBanner
 import ai.ember.app.core.ui.components.MemoriesSkeletonLoader
+import ai.ember.app.core.ui.components.OfflineBanner
 import ai.ember.app.core.ui.components.emberCardShadowLight
 import ai.ember.app.core.ui.theme.EmberError
 import ai.ember.app.core.ui.theme.EmberPrimary
@@ -85,27 +88,43 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun MemoriesScreen(
     viewModel: MemoriesViewModel = hiltViewModel(),
+    networkMonitor: NetworkMonitor? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isOnlineState by (networkMonitor?.isOnline ?: remember {
+        kotlinx.coroutines.flow.MutableStateFlow(true)
+    }).collectAsStateWithLifecycle()
+    val isOffline = !isOnlineState
 
-    when (val state = uiState) {
-        is MemoriesUiState.Loading -> LoadingState(modifier = modifier)
+    Box(modifier = modifier) {
+        when (val state = uiState) {
+            is MemoriesUiState.Loading -> LoadingState()
 
-        is MemoriesUiState.Success -> SuccessContent(
-            state = state,
-            onSegmentSelected = viewModel::selectSegment,
-            onDeleteMemory = viewModel::deleteMemory,
-            onRefresh = viewModel::retryLoadMemories,
-            onRetry = viewModel::retryLoadMemories,
-            modifier = modifier,
-        )
+            is MemoriesUiState.Success -> SuccessContent(
+                state = state,
+                onSegmentSelected = viewModel::selectSegment,
+                onDeleteMemory = viewModel::deleteMemory,
+                onRefresh = viewModel::retryLoadMemories,
+                onRetry = viewModel::retryLoadMemories,
+            )
 
-        is MemoriesUiState.Error -> ErrorState(
-            message = state.message,
-            onRetry = viewModel::loadInitialData,
-            modifier = modifier,
-        )
+            is MemoriesUiState.Error -> ErrorState(
+                message = state.message,
+                onRetry = viewModel::loadInitialData,
+            )
+        }
+
+        // Error banners overlay at the top
+        Column(modifier = Modifier.align(Alignment.TopCenter)) {
+            OfflineBanner(isOffline = isOffline)
+            val currentError = (uiState as? MemoriesUiState.Success)?.currentError
+            ErrorBanner(
+                error = currentError,
+                onDismiss = viewModel::dismissError,
+                onRetry = viewModel::retryLoadMemories,
+            )
+        }
     }
 }
 

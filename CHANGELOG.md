@@ -51,6 +51,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - [P04-01] Android scaffold with Jetpack Compose, Material 3 dark theme, bottom navigation, and design system tokens matching iOS
 - [P04-02] Android auth with login/sign-up screens, EncryptedSharedPreferences token storage, OkHttp 401 auto-refresh interceptor
 - [P04-03] Android onboarding with 3-page welcome carousel, 7 personalization question cards, and Mem0 memory seeding
+- [P04-04] Android home screen with character grid, daily summary card, greeting header, and unread tracking
 
 ---
 

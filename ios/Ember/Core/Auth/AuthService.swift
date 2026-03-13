@@ -5,6 +5,9 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     func signIn(username: String, password: String) async throws
     func signOut() async
     func getAccessToken() async throws -> String
+    /// Forces a token refresh and returns the new access token.
+    /// Used by `APIClient` 401 retry logic.
+    func refreshToken() async throws -> String
 }
 
 final class AuthService: AuthServiceProtocol, @unchecked Sendable {
@@ -25,6 +28,12 @@ final class AuthService: AuthServiceProtocol, @unchecked Sendable {
     }
 
     func getAccessToken() async throws -> String {
+        throw AuthError.notImplemented
+    }
+
+    func refreshToken() async throws -> String {
+        // Stub: real implementation will call Amplify.Auth.fetchAuthSession()
+        // or POST /api/v1/auth/refresh in the Cognito auth feature.
         throw AuthError.notImplemented
     }
 }

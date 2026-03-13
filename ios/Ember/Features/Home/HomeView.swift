@@ -140,7 +140,7 @@ struct HomeView: View {
             onTap: {
                 if let defaultChar = viewModel.defaultCharacter {
                     HomeViewModel.markCharacterAsOpened(defaultChar.id)
-                    router.push(.chat(characterId: defaultChar.id))
+                    router.push(.chat(characterId: defaultChar.id, characterName: defaultChar.name))
                 }
             }
         )
@@ -162,7 +162,7 @@ struct HomeView: View {
                     hasUnread: HomeViewModel.hasUnreadMessages(for: character),
                     onTap: {
                         HomeViewModel.markCharacterAsOpened(character.id)
-                        router.push(.chat(characterId: character.id))
+                        router.push(.chat(characterId: character.id, characterName: character.name))
                     }
                 )
                 .transition(.opacity)

@@ -78,9 +78,8 @@ struct MainTabView: View {
         case .characterDetail:
             Text("Character Detail")
                 .foregroundStyle(Color.emberTextPrimary)
-        case .chat:
-            Text("Chat")
-                .foregroundStyle(Color.emberTextPrimary)
+        case .chat(let characterId, let characterName):
+            ChatView(characterId: characterId, characterName: characterName)
         case .memoryList:
             Text("Memory List")
                 .foregroundStyle(Color.emberTextPrimary)

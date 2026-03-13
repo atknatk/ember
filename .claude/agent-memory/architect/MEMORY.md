@@ -53,6 +53,11 @@
 - P02-01: Activity tracking middleware using Starlette BaseHTTPMiddleware + BackgroundTask. Upsert via raw SQL INSERT ON CONFLICT. Reuses _extract_sub_from_jwt from request_id middleware. Registered as innermost middleware (before rate limiter in code, after in execution).
 - P02-02: APScheduler in-process (not Celery). Sequential user processing. Hourly midnight reset job. Deterministic fallback messages when Claude/Mem0 down. evaluate_notification_triggers is pure function. Firebase init in lifespan. Invalid FCM token -> set fcm_token=NULL. notification_preferences not checked yet (separate feature). goal_followup deferred.
 
+## Key Decisions Log (P03-01)
+
+- P03-01: iOS scaffold. docs/14-tasarim.md colors take precedence over docs/standards/ios.md (different hex values). System fonts not Inter (font files not bundled yet). @AppStorage for auth state (replaced by Cognito in auth feature). Firebase SDK deferred. Hex initializer + Asset Catalog dual approach. Placeholder views prove navigation works.
+- P03-01: Color discrepancy: ios.md says #7C6AF7 primary, tasarim.md says #5B4FE8. tasarim.md wins.
+
 ## Implementation State
 
 See [implementation_state.md](implementation_state.md) for full per-feature file tracking.

@@ -18,6 +18,15 @@ protocol ChatServiceProtocol: Sendable {
         characterId: String,
         content: String
     ) -> AsyncThrowingStream<SSEEvent, Error>
+
+    /// Requests a presigned upload URL from the backend.
+    func getUploadURL(request: UploadURLRequest) async throws -> UploadURLResponse
+
+    /// Uploads raw file data to a presigned S3 URL.
+    func uploadFile(to url: URL, data: Data, contentType: String) async throws
+
+    /// Sends an audio URL to the STT endpoint for transcription.
+    func transcribeAudio(request: STTRequest) async throws -> STTResponse
 }
 
 // MARK: - Chat Service
@@ -48,6 +57,37 @@ final class ChatService: ChatServiceProtocol {
         apiClient.streamSSE(
             endpoint: .streamMessage(characterId: characterId),
             body: SendMessageBody(content: content)
+        )
+    }
+
+    func getUploadURL(request: UploadURLRequest) async throws -> UploadURLResponse {
+        try await apiClient.request(
+            endpoint: .uploadURL,
+            body: request,
+            responseType: UploadURLResponse.self
+        )
+    }
+
+    func uploadFile(to url: URL, data: Data, contentType: String) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.httpBody = data
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw APIError.serverError(statusCode: statusCode, detail: "File upload failed")
+        }
+    }
+
+    func transcribeAudio(request: STTRequest) async throws -> STTResponse {
+        try await apiClient.request(
+            endpoint: .transcribeAudio,
+            body: request,
+            responseType: STTResponse.self
         )
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 /// Represents a single chat message displayed in the UI.
 /// Distinct from `MessagePreview` (which is for home screen previews).
@@ -71,6 +72,17 @@ final class ChatViewModel {
     var errorMessage: String? = nil
     var currentError: EmberError? = nil
     var characterName: String
+
+    // MARK: - Voice Recording State
+
+    /// The voice recorder instance managing AVAudioRecorder.
+    let voiceRecorder = VoiceRecorder()
+
+    /// Whether a voice recording is being uploaded and transcribed.
+    var isProcessingVoice: Bool = false
+
+    /// Whether to show the permission-denied alert directing the user to Settings.
+    var showMicPermissionAlert: Bool = false
 
     // MARK: - Pagination State
 
@@ -252,6 +264,109 @@ final class ChatViewModel {
         currentError = nil
     }
 
+    // MARK: - Voice Recording
+
+    /// Starts a voice recording session. Requests microphone permission on first use.
+    func startRecording() async {
+        // Check / request permission
+        voiceRecorder.checkPermissionStatus()
+
+        if voiceRecorder.permissionDenied {
+            showMicPermissionAlert = true
+            return
+        }
+
+        if !voiceRecorder.permissionGranted {
+            await voiceRecorder.requestPermission()
+
+            if voiceRecorder.permissionDenied {
+                showMicPermissionAlert = true
+                return
+            }
+
+            guard voiceRecorder.permissionGranted else { return }
+        }
+
+        // Start recording
+        let started = voiceRecorder.startRecording()
+        if started {
+            HapticManager.impact(.rigid)
+        }
+    }
+
+    /// Stops the current recording and processes it (upload + STT).
+    func stopRecording() {
+        guard let audioURL = voiceRecorder.stopRecording() else { return }
+
+        HapticManager.notification(.success)
+
+        Task {
+            await processVoiceRecording(audioURL: audioURL)
+        }
+    }
+
+    /// Cancels the current recording.
+    func cancelRecording() {
+        voiceRecorder.cancelRecording()
+        HapticManager.notification(.warning)
+    }
+
+    /// Opens the system Settings app so the user can grant microphone permission.
+    func openSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(settingsURL)
+    }
+
+    /// Processes a voice recording: uploads to S3 via presigned URL, then transcribes via STT.
+    func processVoiceRecording(audioURL: URL) async {
+        isProcessingVoice = true
+        errorMessage = nil
+
+        defer {
+            isProcessingVoice = false
+            voiceRecorder.cleanupRecordingFile(at: audioURL)
+        }
+
+        do {
+            // Step 1: Get presigned upload URL
+            let uploadRequest = UploadURLRequest(
+                filename: audioURL.lastPathComponent,
+                contentType: "audio/mp4",
+                type: "audio"
+            )
+            let uploadResponse = try await service.getUploadURL(request: uploadRequest)
+
+            // Step 2: Upload audio file to S3
+            guard let presignedURL = URL(string: uploadResponse.uploadUrl) else {
+                throw VoiceRecordingError.invalidUploadURL
+            }
+            let audioData = try Data(contentsOf: audioURL)
+            try await service.uploadFile(to: presignedURL, data: audioData, contentType: "audio/mp4")
+
+            // Step 3: Transcribe via STT
+            let sttRequest = STTRequest(audioUrl: uploadResponse.fileUrl)
+            let sttResponse = try await service.transcribeAudio(request: sttRequest)
+
+            let transcript = sttResponse.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !transcript.isEmpty else {
+                throw VoiceRecordingError.emptyTranscript
+            }
+
+            // Set transcript as input text
+            inputText = transcript
+        } catch let error as VoiceRecordingError {
+            let emberError = EmberError.unknown(error.errorDescription ?? "Voice recording failed")
+            currentError = emberError
+            errorMessage = emberError.errorDescription
+            HapticManager.notification(.error)
+        } catch {
+            let emberError = EmberError.from(error)
+            currentError = emberError
+            errorMessage = emberError.errorDescription
+            HapticManager.notification(.error)
+        }
+    }
+
     // MARK: - Private Helpers
 
     /// Maps an API response page into `ChatMessage` values.
@@ -282,5 +397,25 @@ final class ChatViewModel {
             return
         }
         messages.removeLast()
+    }
+}
+
+// MARK: - Voice Recording Errors
+
+/// Domain errors specific to the voice recording flow.
+enum VoiceRecordingError: LocalizedError {
+    case invalidUploadURL
+    case emptyTranscript
+    case recordingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidUploadURL:
+            return "Failed to upload voice recording. Please try again."
+        case .emptyTranscript:
+            return "Could not transcribe audio. Please try again."
+        case .recordingFailed:
+            return "Voice recording failed. Please try again."
+        }
     }
 }

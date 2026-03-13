@@ -16,14 +16,37 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             messagesList
-            ChatInputBar(
-                text: $viewModel.inputText,
-                isSending: viewModel.isStreaming,
-                onSend: {
-                    Task { await viewModel.sendMessage() }
-                }
-            )
+
+            // Voice recording overlay replaces input bar when recording or processing
+            if viewModel.voiceRecorder.isRecording || viewModel.isProcessingVoice {
+                VoiceRecordingOverlay(
+                    audioLevels: viewModel.voiceRecorder.audioLevels,
+                    duration: viewModel.voiceRecorder.recordingDuration,
+                    isProcessing: viewModel.isProcessingVoice,
+                    onCancel: { viewModel.cancelRecording() }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                ChatInputBar(
+                    text: $viewModel.inputText,
+                    isSending: viewModel.isStreaming,
+                    isRecording: viewModel.voiceRecorder.isRecording,
+                    isProcessingVoice: viewModel.isProcessingVoice,
+                    onSend: {
+                        Task { await viewModel.sendMessage() }
+                    },
+                    onStartRecording: {
+                        Task { await viewModel.startRecording() }
+                    },
+                    onStopRecording: {
+                        viewModel.stopRecording()
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: viewModel.voiceRecorder.isRecording)
+        .animation(.easeInOut(duration: 0.25), value: viewModel.isProcessingVoice)
         .background(Color.emberBackground.ignoresSafeArea())
         .navigationTitle(viewModel.characterName)
         .navigationBarTitleDisplayMode(.inline)
@@ -46,6 +69,23 @@ struct ChatView: View {
             }
             .animation(.easeInOut(duration: 0.3), value: viewModel.currentError)
             .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
+        }
+        .alert(
+            "Microphone Access Required",
+            isPresented: $viewModel.showMicPermissionAlert
+        ) {
+            Button("Open Settings") {
+                viewModel.openSettings()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Ember needs microphone access to record voice messages. Please enable it in Settings.")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            // Stop recording if user backgrounds the app
+            if viewModel.voiceRecorder.isRecording {
+                viewModel.cancelRecording()
+            }
         }
     }
 

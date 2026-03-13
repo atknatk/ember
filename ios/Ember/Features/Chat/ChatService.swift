@@ -34,9 +34,11 @@ protocol ChatServiceProtocol: Sendable {
 /// Production implementation backed by `APIClientProtocol`.
 final class ChatService: ChatServiceProtocol {
     private let apiClient: APIClientProtocol
+    private let urlSession: URLSession
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
+    init(apiClient: APIClientProtocol = APIClient.shared, urlSession: URLSession = .shared) {
         self.apiClient = apiClient
+        self.urlSession = urlSession
     }
 
     func loadMessages(
@@ -74,7 +76,7 @@ final class ChatService: ChatServiceProtocol {
         request.httpBody = data
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await urlSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {

@@ -15,15 +15,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.notification_sender import initialize_firebase, send_push_notification
+from app.services.notification_sender import SendResult, initialize_firebase, send_push_notification
 
 
 class TestSendPushNotificationExtended:
     """Additional tests for send_push_notification."""
 
     @pytest.mark.asyncio
-    async def test_returns_false_on_invalid_argument_error(self) -> None:
-        """InvalidArgumentError (bad token format) returns False."""
+    async def test_returns_invalid_token_on_invalid_argument_error(self) -> None:
+        """InvalidArgumentError (bad token format) returns INVALID_TOKEN."""
         from firebase_admin import exceptions as fb_exceptions
 
         with patch(
@@ -37,7 +37,7 @@ class TestSendPushNotificationExtended:
                 data={"character_id": "char-1", "notification_type": "morning_checkin"},
             )
 
-        assert result is False
+        assert result == SendResult.INVALID_TOKEN
 
     @pytest.mark.asyncio
     async def test_message_constructed_with_correct_fields(self) -> None:
@@ -64,7 +64,7 @@ class TestSendPushNotificationExtended:
                 },
             )
 
-        assert result is True
+        assert result == SendResult.SENT
         assert len(captured_messages) == 1
         msg = captured_messages[0]
         assert isinstance(msg, fb_messaging.Message)
@@ -89,11 +89,11 @@ class TestSendPushNotificationExtended:
                 data={"character_id": "c", "notification_type": "morning_checkin"},
             )
 
-        assert result is False
+        assert result == SendResult.TRANSIENT_ERROR
 
     @pytest.mark.asyncio
-    async def test_unregistered_and_invalid_both_return_false_not_raise(self) -> None:
-        """Both token-invalidity errors return False without re-raising."""
+    async def test_unregistered_and_invalid_both_return_invalid_token(self) -> None:
+        """Both token-invalidity errors return INVALID_TOKEN without re-raising."""
         from firebase_admin import messaging as fb_messaging
         from firebase_admin import exceptions as fb_exceptions
 
@@ -111,7 +111,7 @@ class TestSendPushNotificationExtended:
                     body="Hello",
                     data={"character_id": "c1", "notification_type": "morning_checkin"},
                 )
-            assert result is False
+            assert result == SendResult.INVALID_TOKEN
 
 
 class TestInitializeFirebaseExtended:

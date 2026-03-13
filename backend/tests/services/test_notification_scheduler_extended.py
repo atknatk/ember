@@ -39,6 +39,7 @@ from app.services.notification_scheduler import (
     run_notification_cycle,
     start_notification_scheduler,
 )
+from app.services.notification_sender import SendResult
 
 
 # ---------------------------------------------------------------------------
@@ -867,7 +868,7 @@ class TestProcessNotificationEdgeCases:
 
     @pytest.mark.asyncio
     async def test_notifications_sent_today_not_updated_on_fcm_failure(self) -> None:
-        """If FCM returns False, notifications_sent_today is NOT updated."""
+        """If FCM returns INVALID_TOKEN, notifications_sent_today is NOT updated."""
         user_id = uuid.uuid4()
         profile = _make_profile(user_id=user_id)
         activity = _make_activity(user_id=user_id)
@@ -892,7 +893,7 @@ class TestProcessNotificationEdgeCases:
             ),
             patch(
                 "app.services.notification_scheduler.send_push_notification",
-                return_value=False,
+                return_value=SendResult.INVALID_TOKEN,
             ),
         ):
             await _process_notification(
@@ -939,7 +940,7 @@ class TestProcessNotificationEdgeCases:
             ),
             patch(
                 "app.services.notification_scheduler.send_push_notification",
-                return_value=True,
+                return_value=SendResult.SENT,
             ),
         ):
             # Should NOT raise — exception is caught internally

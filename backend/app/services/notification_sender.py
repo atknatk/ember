@@ -43,12 +43,20 @@ def initialize_firebase(credentials_json: str) -> None:
         raise
 
 
+class SendResult:
+    """Result of a push notification send attempt."""
+
+    SENT = "sent"
+    INVALID_TOKEN = "invalid_token"
+    TRANSIENT_ERROR = "transient_error"
+
+
 async def send_push_notification(
     fcm_token: str,
     title: str,
     body: str,
     data: dict[str, str],
-) -> bool:
+) -> str:
     """Send a push notification via Firebase Cloud Messaging.
 
     Args:
@@ -58,9 +66,11 @@ async def send_push_notification(
         data: Additional data payload (character_id, notification_type).
 
     Returns:
-        True on successful send, False on failure.
-        The caller should invalidate the token when this returns False
-        and the error is UnregisteredError or InvalidArgumentError.
+        SendResult.SENT on success.
+        SendResult.INVALID_TOKEN when the token is permanently invalid
+            (UnregisteredError or InvalidArgumentError) — caller should clear token.
+        SendResult.TRANSIENT_ERROR on temporary failures — caller should NOT
+            clear the token.
     """
     message = messaging.Message(
         notification=messaging.Notification(
@@ -73,14 +83,14 @@ async def send_push_notification(
 
     try:
         await asyncio.to_thread(messaging.send, message)
-        return True
+        return SendResult.SENT
     except (messaging.UnregisteredError, fb_exceptions.InvalidArgumentError) as exc:
         logger.warning(
             "FCM token invalid or unregistered: %s (token=%s...)",
             exc,
             fcm_token[:20],
         )
-        return False
+        return SendResult.INVALID_TOKEN
     except Exception:
         logger.exception("FCM send failed for token=%s...", fcm_token[:20])
-        return False
+        return SendResult.TRANSIENT_ERROR

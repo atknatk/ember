@@ -6,15 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.notification_sender import initialize_firebase, send_push_notification
+from app.services.notification_sender import SendResult, initialize_firebase, send_push_notification
 
 
 class TestSendPushNotification:
     """Tests for send_push_notification function."""
 
     @pytest.mark.asyncio
-    async def test_returns_true_on_successful_send(self) -> None:
-        """Test #21: send_push_notification with valid token returns True."""
+    async def test_returns_sent_on_successful_send(self) -> None:
+        """Test #21: send_push_notification with valid token returns SENT."""
         with patch(
             "app.services.notification_sender.messaging.send",
             return_value="projects/test/messages/123",
@@ -26,11 +26,11 @@ class TestSendPushNotification:
                 data={"character_id": "char-1", "notification_type": "morning_checkin"},
             )
 
-        assert result is True
+        assert result == SendResult.SENT
 
     @pytest.mark.asyncio
-    async def test_returns_false_on_unregistered_token(self) -> None:
-        """Test #22: send_push_notification with unregistered token returns False."""
+    async def test_returns_invalid_token_on_unregistered(self) -> None:
+        """Test #22: send_push_notification with unregistered token returns INVALID_TOKEN."""
         from firebase_admin import messaging
 
         with patch(
@@ -44,11 +44,11 @@ class TestSendPushNotification:
                 data={"character_id": "char-1", "notification_type": "morning_checkin"},
             )
 
-        assert result is False
+        assert result == SendResult.INVALID_TOKEN
 
     @pytest.mark.asyncio
-    async def test_returns_false_on_other_fcm_error(self) -> None:
-        """Test #23: send_push_notification with other FCM error returns False."""
+    async def test_returns_transient_error_on_other_fcm_error(self) -> None:
+        """Test #23: send_push_notification with other FCM error returns TRANSIENT_ERROR."""
         with patch(
             "app.services.notification_sender.messaging.send",
             side_effect=Exception("FCM internal error"),
@@ -60,7 +60,7 @@ class TestSendPushNotification:
                 data={"character_id": "char-1", "notification_type": "morning_checkin"},
             )
 
-        assert result is False
+        assert result == SendResult.TRANSIENT_ERROR
 
 
 class TestInitializeFirebase:

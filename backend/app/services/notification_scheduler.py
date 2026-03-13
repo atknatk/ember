@@ -29,7 +29,7 @@ from app.models.profile import Profile
 from app.models.user_activity import UserActivity
 from app.services.llm.exceptions import LLMProviderError
 from app.services.llm.router import get_llm_router
-from app.services.notification_sender import send_push_notification
+from app.services.notification_sender import SendResult, send_push_notification
 
 logger = logging.getLogger("ember")
 
@@ -393,7 +393,7 @@ async def _process_notification(
     if not profile.fcm_token:
         return
 
-    success = await send_push_notification(
+    result = await send_push_notification(
         fcm_token=profile.fcm_token,
         title=default_character.name,
         body=message,
@@ -403,8 +403,8 @@ async def _process_notification(
         },
     )
 
-    if not success:
-        # Token might be invalid — clear it
+    if result == SendResult.INVALID_TOKEN:
+        # Permanently invalid token — clear it
         await db.execute(
             update(Profile)
             .where(Profile.id == profile.id)
@@ -412,6 +412,10 @@ async def _process_notification(
         )
         await db.commit()
         logger.info("Cleared invalid FCM token for user_id=%s", profile.id)
+        return
+
+    if result == SendResult.TRANSIENT_ERROR:
+        # Transient failure — keep the token, skip recording this notification
         return
 
     # 4. Update notifications_sent_today

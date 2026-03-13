@@ -21,6 +21,7 @@ from app.services.notification_scheduler import (
     reset_notifications_sent_today,
     run_notification_cycle,
 )
+from app.services.notification_sender import SendResult
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -379,7 +380,7 @@ class TestProcessNotification:
             ) as mock_gen,
             patch(
                 "app.services.notification_scheduler.send_push_notification",
-                return_value=True,
+                return_value=SendResult.SENT,
             ) as mock_send,
         ):
             await _process_notification(
@@ -458,8 +459,8 @@ class TestProcessNotification:
             assert result == "Good morning! How are you feeling today?"
 
     @pytest.mark.asyncio
-    async def test_invalidates_token_on_fcm_failure(self) -> None:
-        """Test #16: FCM send returns False -> fcm_token set to NULL."""
+    async def test_invalidates_token_on_invalid_token(self) -> None:
+        """Test #16: FCM send returns INVALID_TOKEN -> fcm_token set to NULL."""
         user_id = uuid.uuid4()
         profile = _make_profile(user_id=user_id)
         activity = _make_activity(user_id=user_id)
@@ -477,7 +478,7 @@ class TestProcessNotification:
             ),
             patch(
                 "app.services.notification_scheduler.send_push_notification",
-                return_value=False,
+                return_value=SendResult.INVALID_TOKEN,
             ),
         ):
             await _process_notification(

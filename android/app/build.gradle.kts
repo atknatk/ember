@@ -71,6 +71,7 @@ dependencies {
     // Core
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
+    implementation(libs.security.crypto)
 
     // Navigation
     implementation(libs.navigation.compose)
@@ -106,4 +107,5 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockwebserver)
 }

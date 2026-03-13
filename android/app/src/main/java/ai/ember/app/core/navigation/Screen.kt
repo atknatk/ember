@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * Sealed route definitions for navigation.
  */
 sealed class Screen(val route: String) {
+    data object Auth : Screen("auth")
     data object Home : Screen("home")
     data object Memories : Screen("memories")
     data object Profile : Screen("profile")

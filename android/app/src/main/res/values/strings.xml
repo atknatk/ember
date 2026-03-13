@@ -18,4 +18,24 @@
     <!-- Profile Screen -->
     <string name="profile_title">Profile</string>
     <string name="profile_placeholder">Settings coming soon</string>
+
+    <!-- Auth Screens -->
+    <string name="auth_welcome_back">Welcome Back</string>
+    <string name="auth_sign_in_subtitle">Sign in to continue</string>
+    <string name="auth_create_account">Create Account</string>
+    <string name="auth_sign_up_subtitle">Join Ember to get started</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_password_hint">Password (8+ characters)</string>
+    <string name="auth_name_label">Full Name</string>
+    <string name="auth_confirm_password_label">Confirm Password</string>
+    <string name="auth_sign_in_button">Sign In</string>
+    <string name="auth_create_account_button">Create Account</string>
+    <string name="auth_no_account">Don\'t have an account?</string>
+    <string name="auth_sign_up_link">Sign Up</string>
+    <string name="auth_have_account">Already have an account?</string>
+    <string name="auth_sign_in_link">Sign In</string>
+    <string name="auth_toggle_password_visibility">Toggle password visibility</string>
+    <string name="auth_email_invalid">Please enter a valid email</string>
+    <string name="auth_passwords_mismatch">Passwords do not match</string>
 </resources>
